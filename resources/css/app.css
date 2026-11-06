@@ -1,0 +1,130 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
+@source '../js/**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+:root {
+    color-scheme: light;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    min-width: 320px;
+    margin: 0;
+    background: #f3f6fb;
+    color: #17243b;
+}
+
+.auth-shell {
+    background:
+        radial-gradient(ellipse at 12% 12%, rgb(64 113 198 / 12%), transparent 32rem),
+        radial-gradient(ellipse at 92% 84%, rgb(24 151 126 / 10%), transparent 30rem),
+        #f3f6fb;
+}
+
+.auth-card {
+    box-shadow: 0 24px 70px rgb(34 54 88 / 12%);
+}
+
+.brand-mark {
+    background: linear-gradient(145deg, #1d4ed8, #173b80);
+    box-shadow: 0 10px 24px rgb(29 78 216 / 24%);
+}
+
+.form-control {
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.form-control:focus {
+    border-color: #3569cf;
+    box-shadow: 0 0 0 4px rgb(53 105 207 / 13%);
+    outline: none;
+}
+
+.primary-action {
+    background: linear-gradient(105deg, #2456b8, #1b438e);
+    transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+
+.primary-action:hover {
+    box-shadow: 0 10px 20px rgb(29 67 142 / 22%);
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+}
+
+.dashboard-shell {
+    background:
+        radial-gradient(ellipse at 90% 5%, rgb(41 91 184 / 8%), transparent 30rem),
+        #f3f6fb;
+}
+
+.app-shell {
+    background: #f4f7fb;
+}
+
+.dashboard-sidebar {
+    transform: translateX(-105%);
+}
+
+.dashboard-sidebar.is-open {
+    transform: translateX(0);
+}
+
+.sidebar-overlay {
+    display: none;
+}
+
+.sidebar-overlay.is-visible {
+    display: block;
+}
+
+.user-avatar {
+    background: linear-gradient(145deg, #274f9e, #162e5a);
+}
+
+.nav-item {
+    color: #64748b;
+}
+
+.nav-item:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.nav-item-active {
+    background: #eaf1ff;
+    color: #1d4ed8;
+}
+
+.shortcut-card:hover {
+    box-shadow: 0 8px 18px rgb(34 54 88 / 7%);
+}
+
+@media (min-width: 768px) {
+    .dashboard-sidebar {
+        transform: translateX(0);
+    }
+
+    .sidebar-overlay,
+    .sidebar-overlay.is-visible {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}
