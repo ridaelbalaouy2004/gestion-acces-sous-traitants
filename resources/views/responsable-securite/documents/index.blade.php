@@ -19,17 +19,17 @@
                     type="search"
                     value="{{ $filters['search'] ?? '' }}"
                     placeholder="Titre, référence, entreprise ou prestataire"
-                    class="form-control min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900"
+                    class="form-control filter-control min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900"
                 >
             </div>
             <div class="sm:w-56">
                 <label for="document-sort" class="mb-1.5 block text-sm font-medium text-slate-700">Date de validation</label>
-                <select id="document-sort" name="sort" class="form-control min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900">
+                <select id="document-sort" name="sort" class="form-control filter-control min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900">
                     <option value="newest" @selected(($filters['sort'] ?? 'newest') === 'newest')>Plus récent d’abord</option>
                     <option value="oldest" @selected(($filters['sort'] ?? '') === 'oldest')>Plus ancien d’abord</option>
                 </select>
             </div>
-            <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-800">
+            <button type="submit" class="filter-action inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white">
                 Rechercher
             </button>
         </form>
@@ -60,7 +60,13 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100 bg-white">
                         @foreach ($documents as $document)
-                            <tr class="transition hover:bg-slate-50/70">
+                            <tr
+                                data-navigate-to="{{ route('responsable-securite.documents.show', $document) }}"
+                                tabindex="0"
+                                aria-label="Consulter le document {{ $document->title }}"
+                                aria-keyshortcuts="Enter Space"
+                                class="cursor-pointer transition-colors hover:bg-slate-50/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-blue-700"
+                            >
                                 <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600 sm:px-6">{{ $document->reference_number ?: '—' }}</td>
                                 <td class="px-5 py-4 text-sm font-semibold text-slate-800">{{ $document->title }}</td>
                                 <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600">{{ $document->company_name ?: '—' }}</td>

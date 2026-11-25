@@ -17,11 +17,24 @@
                     @endif
                     <th scope="col" class="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Statut</th>
                     <th scope="col" class="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Date</th>
+                    @if (! empty($detailRoute))
+                        <th scope="col" class="whitespace-nowrap px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Action</th>
+                    @endif
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white">
                 @foreach ($documents as $document)
-                    <tr class="transition hover:bg-slate-50/70">
+                    <tr
+                        @if (! empty($detailRoute))
+                            data-navigate-to="{{ route($detailRoute, $document) }}"
+                            tabindex="0"
+                            aria-label="Consulter le document {{ $document->title }}"
+                            aria-keyshortcuts="Enter Space"
+                            class="cursor-pointer transition-colors hover:bg-slate-50/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-blue-700"
+                        @else
+                            class="transition hover:bg-slate-50/70"
+                        @endif
+                    >
                         <td class="whitespace-nowrap px-5 py-4 sm:px-6">
                             <p class="max-w-64 truncate text-sm font-semibold text-slate-800">{{ $document->title }}</p>
                             <p class="mt-1 text-xs text-slate-500">{{ $document->reference_number ?: 'Référence en attente' }}</p>
@@ -33,6 +46,11 @@
                             @include('shared.document-status-badge', ['status' => $document->status])
                         </td>
                         <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-500">{{ ($document->{$dateColumn} ?? $document->submitted_at ?? $document->created_at)?->format('d/m/Y') ?? '—' }}</td>
+                        @if (! empty($detailRoute))
+                            <td class="whitespace-nowrap px-5 py-4 text-right text-sm">
+                                <a href="{{ route($detailRoute, $document) }}" class="font-semibold text-blue-700 hover:text-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">Consulter</a>
+                            </td>
+                        @endif
                     </tr>
                 @endforeach
             </tbody>

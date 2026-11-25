@@ -33,7 +33,17 @@
             <div class="space-y-3">
                 @foreach ($notificationItems as $item)
                     @php($notification = $item['notification'])
-                    <article class="rounded-2xl border {{ $notification->read_at === null ? 'border-blue-200 bg-blue-50/40' : 'border-slate-200 bg-white' }} p-4 shadow-sm sm:p-5">
+                    @php($notificationDestinations = array_values(array_unique(array_filter([$item['documentUrl'], $item['employeeUrl'], $item['machineryUrl'], $item['toolingUrl'], $item['memberUrl']]))))
+                    @php($notificationDestination = count($notificationDestinations) === 1 ? $notificationDestinations[0] : null)
+                    <article
+                        class="rounded-2xl border {{ $notification->read_at === null ? 'border-blue-200 bg-blue-50/40' : 'border-slate-200 bg-white' }} p-4 shadow-sm sm:p-5 {{ $notificationDestination ? 'cursor-pointer transition-colors hover:ring-2 hover:ring-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700' : '' }}"
+                        @if ($notificationDestination)
+                            data-navigate-to="{{ $notificationDestination }}"
+                            tabindex="0"
+                            aria-label="Ouvrir la notification : {{ $item['title'] }}"
+                            aria-keyshortcuts="Enter Space"
+                        @endif
+                    >
                         <div class="flex items-start gap-3 sm:gap-4">
                             <span class="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl {{ $notification->read_at === null ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500' }}" aria-hidden="true">
                                 <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -77,6 +87,28 @@
                                     </p>
                                 @endif
 
+                                @if ($item['employeeName'] || $item['employeeCompanyName'])
+                                    <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                                        @if ($item['employeeUrl'])
+                                            <a href="{{ $item['employeeUrl'] }}" class="font-semibold text-blue-700 underline decoration-blue-200 underline-offset-2 hover:text-blue-900">{{ $item['employeeName'] ?? 'Consulter l’employé' }}</a>
+                                        @else
+                                            <span class="font-semibold text-slate-800">{{ $item['employeeName'] }}</span>
+                                        @endif
+                                        @if ($item['employeeCompanyName'])
+                                            <span class="text-slate-500">Entreprise : {{ $item['employeeCompanyName'] }}</span>
+                                        @endif
+                                    </div>
+                                @endif
+                                @if ($item['employeeDocumentLabel'])
+                                    <p class="mt-2 text-sm text-slate-600"><span class="font-semibold">Document :</span> {{ $item['employeeDocumentLabel'] }}</p>
+                                @endif
+                                @if ($item['employeePrestataireName'])
+                                    <p class="mt-2 text-sm text-slate-600"><span class="font-semibold">Prestataire :</span> {{ $item['employeePrestataireName'] }}</p>
+                                @endif
+                                @if ($item['employeeStatusLabel'])
+                                    <p class="mt-2 text-sm text-slate-600"><span class="font-semibold">Statut :</span> {{ $item['employeeStatusLabel'] }}</p>
+                                @endif
+
                                 @if ($item['statusLabel'])
                                     <p class="mt-2 text-sm text-slate-600"><span class="font-semibold">Statut :</span> {{ $item['statusLabel'] }}</p>
                                 @endif
@@ -92,10 +124,95 @@
                                     </p>
                                 @endif
 
+                                @if ($item['memberRequestType'])
+                                    <p class="mt-2 text-sm text-slate-600">
+                                        <span class="font-semibold">Type de demande :</span>
+                                        {{ $item['memberRequestType'] === 'new_member' ? 'Nouveau membre' : 'Modification' }}
+                                    </p>
+                                @endif
+
                                 @if ($item['dateLabel'])
                                     <p class="mt-2 text-xs text-slate-500">
                                         {{ $item['dateLabel'] }} {{ $notification->created_at?->format('d/m/Y à H:i') }}
                                     </p>
+                                @endif
+                                @if ($item['employeeDateLabel'])
+                                    <p class="mt-2 text-xs text-slate-500">
+                                        {{ $item['employeeDateLabel'] }} {{ $notification->created_at?->format('d/m/Y à H:i') }}
+                                    </p>
+                                @endif
+                                @if ($item['machineryName'] || $item['machineryCompanyName'])
+                                    <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                                        @if ($item['machineryUrl'])
+                                            <a href="{{ $item['machineryUrl'] }}" class="font-semibold text-blue-700 underline decoration-blue-200 underline-offset-2 hover:text-blue-900">{{ $item['machineryName'] ?? 'Consulter l’engin' }}</a>
+                                        @else
+                                            <span class="font-semibold text-slate-800">{{ $item['machineryName'] }}</span>
+                                        @endif
+                                        @if ($item['machineryCompanyName'])
+                                            <span class="text-slate-500">Entreprise : {{ $item['machineryCompanyName'] }}</span>
+                                        @endif
+                                    </div>
+                                @endif
+                                @if ($item['machineryDocumentLabel'])
+                                    <p class="mt-2 text-sm text-slate-600"><span class="font-semibold">Document :</span> {{ $item['machineryDocumentLabel'] }}</p>
+                                @endif
+                                @if ($item['machineryPrestataireName'])
+                                    <p class="mt-2 text-sm text-slate-600"><span class="font-semibold">Prestataire :</span> {{ $item['machineryPrestataireName'] }}</p>
+                                @endif
+                                @if ($item['machineryStatusLabel'])
+                                    <p class="mt-2 text-sm text-slate-600"><span class="font-semibold">Statut :</span> {{ $item['machineryStatusLabel'] }}</p>
+                                @endif
+                                @if ($item['machineryDateLabel'])
+                                    <p class="mt-2 text-xs text-slate-500">
+                                        {{ $item['machineryDateLabel'] }} {{ $notification->created_at?->format('d/m/Y à H:i') }}
+                                    </p>
+                                @endif
+                                @if ($item['toolingName'] || $item['toolingCompanyName'])
+                                    <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                                        @if ($item['toolingUrl'])
+                                            <a href="{{ $item['toolingUrl'] }}" class="font-semibold text-blue-700 underline decoration-blue-200 underline-offset-2 hover:text-blue-900">{{ $item['toolingName'] ?? 'Consulter l’outillage' }}</a>
+                                        @else
+                                            <span class="font-semibold text-slate-800">{{ $item['toolingName'] }}</span>
+                                        @endif
+                                        @if ($item['toolingCompanyName'])
+                                            <span class="text-slate-500">Entreprise : {{ $item['toolingCompanyName'] }}</span>
+                                        @endif
+                                    </div>
+                                @endif
+                                @if ($item['toolingDocumentLabel'])
+                                    <p class="mt-2 text-sm text-slate-600"><span class="font-semibold">Document :</span> {{ $item['toolingDocumentLabel'] }}</p>
+                                @endif
+                                @if ($item['toolingPrestataireName'])
+                                    <p class="mt-2 text-sm text-slate-600"><span class="font-semibold">Prestataire :</span> {{ $item['toolingPrestataireName'] }}</p>
+                                @endif
+                                @if ($item['toolingStatusLabel'])
+                                    <p class="mt-2 text-sm text-slate-600"><span class="font-semibold">Statut :</span> {{ $item['toolingStatusLabel'] }}</p>
+                                @endif
+                                @if ($item['toolingDateLabel'])
+                                    <p class="mt-2 text-xs text-slate-500">
+                                        {{ $item['toolingDateLabel'] }} {{ $notification->created_at?->format('d/m/Y à H:i') }}
+                                    </p>
+                                @endif
+
+                                @if ($item['memberUrl'])
+                                    <a href="{{ $item['memberUrl'] }}" class="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">
+                                        {{ $roleLabel === 'Gestionnaire' ? 'Examiner le membre' : 'Consulter le membre' }}
+                                    </a>
+                                @endif
+                                @if ($item['employeeUrl'])
+                                    <a href="{{ $item['employeeUrl'] }}" class="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">
+                                        {{ $roleLabel === 'Gestionnaire' ? 'Examiner l’employé' : 'Consulter l’employé' }}
+                                    </a>
+                                @endif
+                                @if ($item['machineryUrl'])
+                                    <a href="{{ $item['machineryUrl'] }}" class="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">
+                                        {{ $roleLabel === 'Gestionnaire' ? 'Examiner l’engin' : 'Consulter l’engin' }}
+                                    </a>
+                                @endif
+                                @if ($item['toolingUrl'])
+                                    <a href="{{ $item['toolingUrl'] }}" class="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">
+                                        {{ $roleLabel === 'Gestionnaire' ? 'Examiner l’outillage' : 'Consulter l’outillage' }}
+                                    </a>
                                 @endif
 
                                 @if ($item['comment'])

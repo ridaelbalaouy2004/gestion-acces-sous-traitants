@@ -1,0 +1,39 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+#[Fillable([
+    'company_tooling_document_id',
+    'version',
+    'file_name',
+    'file_path',
+    'mime_type',
+    'uploaded_by',
+    'uploaded_at',
+    'notes',
+    'is_current',
+])]
+class CompanyToolingDocumentVersion extends Model
+{
+    protected function casts(): array
+    {
+        return [
+            'uploaded_at' => 'datetime',
+            'is_current' => 'boolean',
+        ];
+    }
+
+    public function document(): BelongsTo
+    {
+        return $this->belongsTo(CompanyToolingDocument::class, 'company_tooling_document_id');
+    }
+
+    public function uploadedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
+    }
+}

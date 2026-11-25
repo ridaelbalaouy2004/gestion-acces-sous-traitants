@@ -55,10 +55,40 @@
                 </div>
             </div>
 
+            @php
+                $sidebarNavigation = $navigation;
+
+                if ($routePrefix === 'gestionnaire') {
+                    $gestionnaireRouteOrder = [
+                        'gestionnaire.dashboard',
+                        'notifications.index',
+                        'gestionnaire.companies.index',
+                        'gestionnaire.employees.index',
+                        'gestionnaire.machinery.index',
+                        'gestionnaire.toolings.index',
+                        'gestionnaire.prestataires.index',
+                        'gestionnaire.prestataires.create',
+                        'gestionnaire.employes.index',
+                        'gestionnaire.delegated.index',
+                        'gestionnaire.guides.required-documents.index',
+                        'gestionnaire.profile',
+                    ];
+                    $navigationPriorities = array_flip($gestionnaireRouteOrder);
+
+                    usort($sidebarNavigation, static fn (array $first, array $second): int => (
+                        $navigationPriorities[$first['route']] ?? PHP_INT_MAX
+                    ) <=> (
+                        $navigationPriorities[$second['route']] ?? PHP_INT_MAX
+                    ));
+                }
+            @endphp
+
             <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-5" aria-label="Menu de l’espace {{ $roleLabel }}">
                 <p class="px-3 pb-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-400">Espace de travail</p>
-                @foreach ($navigation as $item)
-                    @php($isActive = request()->routeIs($item['route']) || ($item['route'] === 'prestataire.safety-team' && request()->routeIs('prestataire.safety-team.*')) || ($item['route'] === 'notifications.index' && request()->routeIs('prestataire.notifications.index', 'gestionnaire.notifications.index', 'responsable-securite.notifications.index')) || ($item['route'] === 'prestataire.documents.index' && request()->routeIs('prestataire.documents.show', 'prestataire.documents.edit')) || ($item['route'] === 'responsable-securite.documents.index' && request()->routeIs('responsable-securite.documents.show')))
+                @foreach ($sidebarNavigation as $item)
+                    @php($isCollectionRoute = str_ends_with($item['route'], '.index'))
+                    @php($routePrefix = $isCollectionRoute ? substr($item['route'], 0, -5) : null)
+                    @php($isActive = request()->routeIs($item['route']) || ($routePrefix !== null && request()->routeIs($routePrefix.'*')) || ($item['route'] === 'notifications.index' && request()->routeIs('prestataire.notifications.index', 'gestionnaire.notifications.index', 'responsable-securite.notifications.index')))
                     <a
                         href="{{ route($item['route']) }}"
                         @if ($isActive) aria-current="page" @endif
@@ -86,6 +116,15 @@
                                     @break
                                 @case('users')
                                     <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.8m1 2.2a5 5 0 0 1 3.5 4.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                                    @break
+                                @case('building')
+                                    <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5"><path d="M4 20V5.5A1.5 1.5 0 0 1 5.5 4H15v16M15 9h3.5A1.5 1.5 0 0 1 20 10.5V20M2.5 20h19" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 8h3m-3 4h3m-3 4h3m7-3h.01m0 3h.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                                    @break
+                                @case('truck')
+                                    <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5"><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="7.5" cy="18" r="1.75" stroke="currentColor" stroke-width="1.7"/><circle cx="17.5" cy="18" r="1.75" stroke="currentColor" stroke-width="1.7"/></svg>
+                                    @break
+                                @case('tool')
+                                    <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5"><path d="M14.5 6.5a5 5 0 0 0 6 6L12 21l-5-5 8.5-8.5ZM5 4l4 4M3 8l5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                     @break
                                 @case('bell')
                                     <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -166,10 +205,18 @@
             <main class="w-full flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
                 <div class="mx-auto max-w-7xl">
                     @if (session('status'))
-                        <div class="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">{{ session('status') }}</div>
+                        <div data-server-flash-status class="mb-6 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
+                            <span data-server-flash-message>{{ session('status') }}</span>
+                        </div>
                     @endif
                     @if ($errors->any())
-                        <div class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ $errors->first() }}</div>
+                        <div data-server-validation-errors class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                            <ul class="list-inside list-disc space-y-1">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
                     @endif
 
                     @yield('content')

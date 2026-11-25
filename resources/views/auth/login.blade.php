@@ -28,6 +28,12 @@
                 </div>
             @endif
 
+            @if (session('status'))
+                <div class="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
+                    {{ session('status') }}
+                </div>
+            @endif
+
             <form method="POST" action="{{ route('login.store') }}" class="space-y-5">
                 @csrf
 
@@ -54,6 +60,7 @@
                 <div>
                     <div class="mb-2 flex items-center justify-between gap-3">
                         <label for="password" class="block text-sm font-medium text-slate-700">Mot de passe</label>
+                        <a href="{{ route('password.request') }}" class="text-sm font-semibold text-blue-700 hover:text-blue-900">Mot de passe oublié ?</a>
                     </div>
                     <div class="relative">
                         <input

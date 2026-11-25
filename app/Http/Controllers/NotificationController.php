@@ -2,9 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CompanyEmployee;
+use App\Models\CompanyMachinery;
+use App\Models\CompanyTooling;
 use App\Models\Document;
-use App\Models\DocumentRevision;
 use App\Models\User;
+use App\Notifications\CompanyEmployeeWorkflowNotification;
+use App\Notifications\CompanyMachineryWorkflowNotification;
+use App\Notifications\CompanyToolingWorkflowNotification;
 use App\Notifications\DocumentWorkflowNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +22,39 @@ class NotificationController extends Controller
         'responsable_securite',
         'prestataire',
         'gestionnaire',
+    ];
+
+    private const EMPLOYEE_EVENTS = [
+        CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_SUBMITTED,
+        CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_RESUBMITTED,
+        CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_VALIDATED,
+        CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_REJECTED,
+        CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_SUBMITTED,
+        CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_REPLACED,
+        CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_VALIDATED,
+        CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_REJECTED,
+    ];
+
+    private const MACHINERY_EVENTS = [
+        CompanyMachineryWorkflowNotification::EVENT_MACHINERY_SUBMITTED,
+        CompanyMachineryWorkflowNotification::EVENT_MACHINERY_RESUBMITTED,
+        CompanyMachineryWorkflowNotification::EVENT_MACHINERY_VALIDATED,
+        CompanyMachineryWorkflowNotification::EVENT_MACHINERY_REJECTED,
+        CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_SUBMITTED,
+        CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_REPLACED,
+        CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_VALIDATED,
+        CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_REJECTED,
+    ];
+
+    private const TOOLING_EVENTS = [
+        CompanyToolingWorkflowNotification::EVENT_TOOLING_SUBMITTED,
+        CompanyToolingWorkflowNotification::EVENT_TOOLING_RESUBMITTED,
+        CompanyToolingWorkflowNotification::EVENT_TOOLING_VALIDATED,
+        CompanyToolingWorkflowNotification::EVENT_TOOLING_REJECTED,
+        CompanyToolingWorkflowNotification::EVENT_DOCUMENT_SUBMITTED,
+        CompanyToolingWorkflowNotification::EVENT_DOCUMENT_REPLACED,
+        CompanyToolingWorkflowNotification::EVENT_DOCUMENT_VALIDATED,
+        CompanyToolingWorkflowNotification::EVENT_DOCUMENT_REJECTED,
     ];
 
     public function index(Request $request): View
@@ -32,152 +70,378 @@ class NotificationController extends Controller
 
         abort_unless(is_string($role), 403);
 
-        $notifications = $user->notifications()
+        $notifications = $user->visibleNotifications()
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(10);
 
         $documentIds = $notifications->getCollection()
+            ->filter(fn (DatabaseNotification $notification): bool => $notification->type === DocumentWorkflowNotification::class)
             ->map(fn (DatabaseNotification $notification): mixed => data_get($notification->data, 'document_id'))
             ->filter(fn (mixed $id): bool => is_int($id) || (is_string($id) && ctype_digit($id)))
             ->unique()
             ->values();
-
         $documents = Document::query()
             ->whereIn('id', $documentIds)
             ->with('prestataire:id,name')
             ->get(['id', 'prestataire_id', 'title', 'reference_number', 'status'])
             ->keyBy('id');
 
+        $employeeIds = $notifications->getCollection()
+            ->filter(fn (DatabaseNotification $notification): bool => $notification->type === CompanyEmployeeWorkflowNotification::class)
+            ->map(fn (DatabaseNotification $notification): mixed => data_get($notification->data, 'employee_id'))
+            ->filter(fn (mixed $id): bool => is_int($id) || (is_string($id) && ctype_digit($id)))
+            ->unique()
+            ->values();
+        $employees = CompanyEmployee::query()
+            ->whereIn('id', $employeeIds)
+            ->with(['company:id,name,prestataire_id', 'company.prestataire:id,name'])
+            ->get(['id', 'company_id', 'first_name', 'last_name', 'status'])
+            ->keyBy('id');
+        $machineryIds = $notifications->getCollection()
+            ->filter(fn (DatabaseNotification $notification): bool => $notification->type === CompanyMachineryWorkflowNotification::class)
+            ->map(fn (DatabaseNotification $notification): mixed => data_get($notification->data, 'company_machinery_id'))
+            ->filter(fn (mixed $id): bool => is_int($id) || (is_string($id) && ctype_digit($id)))
+            ->unique()
+            ->values();
+        $machineryItems = CompanyMachinery::query()
+            ->whereIn('id', $machineryIds)
+            ->with(['company:id,name,prestataire_id', 'company.prestataire:id,name'])
+            ->get(['id', 'company_id', 'designation', 'status'])
+            ->keyBy('id');
+        $toolingIds = $notifications->getCollection()
+            ->filter(fn (DatabaseNotification $notification): bool => $notification->type === CompanyToolingWorkflowNotification::class)
+            ->map(fn (DatabaseNotification $notification): mixed => data_get($notification->data, 'company_tooling_id'))
+            ->filter(fn (mixed $id): bool => is_int($id) || (is_string($id) && ctype_digit($id)))
+            ->unique()
+            ->values();
+        $toolingItems = CompanyTooling::query()
+            ->whereIn('id', $toolingIds)
+            ->with(['company:id,name,prestataire_id', 'company.prestataire:id,name'])
+            ->get(['id', 'company_id', 'designation', 'status'])
+            ->keyBy('id');
+
         $notificationItems = $notifications->getCollection()
-            ->map(function (DatabaseNotification $notification) use ($documents, $role, $user): array {
+            ->map(function (DatabaseNotification $notification) use ($documents, $employees, $machineryItems, $toolingItems, $role, $user): array {
                 $data = $notification->data;
+                $event = data_get($data, 'event');
                 $documentId = data_get($data, 'document_id');
                 $document = is_int($documentId) || (is_string($documentId) && ctype_digit($documentId))
                     ? $documents->get((int) $documentId)
                     : null;
-                $canShowDocumentDetails = match ($role) {
-                    'prestataire' => $document === null || (int) $document->prestataire_id === (int) $user->getKey(),
-                    'gestionnaire' => true,
-                    'responsable_securite' => $document !== null && $document->status === Document::STATUS_VALIDATED,
-                };
-                $event = data_get($data, 'event');
-                $revisionDocumentTitle = data_get($data, 'title');
-                $revisionDocumentTitle = is_string($revisionDocumentTitle) ? $revisionDocumentTitle : 'ce document';
+                $canShowDocumentDetails = $role === 'responsable_securite'
+                    && $event === DocumentWorkflowNotification::EVENT_VALIDATED
+                    && $document?->status === Document::STATUS_VALIDATED;
+                $employeeId = data_get($data, 'employee_id');
+                $employee = is_int($employeeId) || (is_string($employeeId) && ctype_digit($employeeId))
+                    ? $employees->get((int) $employeeId)
+                    : null;
+                $isEmployeeEvent = $notification->type === CompanyEmployeeWorkflowNotification::class
+                    && in_array($event, self::EMPLOYEE_EVENTS, true);
+                $canShowEmployeeDetails = $isEmployeeEvent
+                    && $employee !== null
+                    && match ($role) {
+                        'prestataire' => (int) $employee->company?->prestataire_id === (int) $user->getKey(),
+                        'gestionnaire' => $user->hasPermission('employees.view')
+                            && $employee->company !== null
+                            && $user->accessiblePrestataires()->whereKey($employee->company->prestataire_id)->exists(),
+                        default => false,
+                    };
+                $machineryId = data_get($data, 'company_machinery_id');
+                $machinery = is_int($machineryId) || (is_string($machineryId) && ctype_digit($machineryId))
+                    ? $machineryItems->get((int) $machineryId)
+                    : null;
+                $isMachineryEvent = $notification->type === CompanyMachineryWorkflowNotification::class
+                    && in_array($event, self::MACHINERY_EVENTS, true);
+                $canShowMachineryDetails = $isMachineryEvent
+                    && $machinery !== null
+                    && match ($role) {
+                        'prestataire' => (int) $machinery->company?->prestataire_id === (int) $user->getKey(),
+                        'gestionnaire' => $user->hasPermission('machinery.view')
+                            && $machinery->company !== null
+                            && $user->accessiblePrestataires()->whereKey($machinery->company->prestataire_id)->exists(),
+                        default => false,
+                    };
+                $toolingId = data_get($data, 'company_tooling_id');
+                $tooling = is_int($toolingId) || (is_string($toolingId) && ctype_digit($toolingId))
+                    ? $toolingItems->get((int) $toolingId)
+                    : null;
+                $isToolingEvent = $notification->type === CompanyToolingWorkflowNotification::class
+                    && in_array($event, self::TOOLING_EVENTS, true);
+                $canShowToolingDetails = $isToolingEvent
+                    && $tooling !== null
+                    && match ($role) {
+                        'prestataire' => (int) $tooling->company?->prestataire_id === (int) $user->getKey(),
+                        'gestionnaire' => $user->hasPermission('toolings.view')
+                            && $tooling->company !== null
+                            && $user->accessiblePrestataires()->whereKey($tooling->company->prestataire_id)->exists(),
+                        default => false,
+                    };
 
                 $labels = match ($event) {
-                    DocumentWorkflowNotification::EVENT_SUBMITTED => [
-                        'title' => 'Nouveau dossier à examiner',
-                        'message' => 'Un prestataire a soumis un nouveau dossier.',
-                    ],
-                    DocumentWorkflowNotification::EVENT_RESUBMITTED => [
-                        'title' => 'Dossier soumis à nouveau',
-                        'message' => 'Un dossier corrigé a été transmis pour une nouvelle vérification.',
-                    ],
-                    DocumentWorkflowNotification::EVENT_REJECTED => [
-                        'title' => 'Document refusé',
-                        'message' => 'Votre document a été refusé.',
-                    ],
                     DocumentWorkflowNotification::EVENT_VALIDATED => [
                         'title' => 'Document validé',
-                        'message' => $role === 'responsable_securite'
-                            ? 'Un document a été validé et peut être consulté.'
-                            : 'Votre document a été accepté.',
+                        'message' => 'Un document a été validé et peut être consulté.',
                     ],
-                    DocumentWorkflowNotification::EVENT_UPDATED => [
-                        'title' => 'Dossier mis à jour',
-                        'message' => 'L’équipe de sécurité de ce dossier a été mise à jour.',
+                    CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_SUBMITTED => [
+                        'title' => 'Nouvel employé à examiner',
+                        'message' => 'Un employé a été soumis pour validation.',
                     ],
-                    DocumentWorkflowNotification::EVENT_REVISION_REQUESTED => [
-                        'title' => 'Document nécessitant une nouvelle vérification',
-                        'message' => match (data_get($data, 'revision_type')) {
-                            DocumentRevision::TYPE_MEMBER_ADDED => "Le Prestataire a ajouté un nouveau membre à l'équipe de sécurité du document {$revisionDocumentTitle}. Une nouvelle validation est nécessaire.",
-                            DocumentRevision::TYPE_MEMBER_UPDATED => "Le Prestataire a modifié un membre de l'équipe de sécurité du document {$revisionDocumentTitle}. Une nouvelle validation est nécessaire.",
-                            DocumentRevision::TYPE_MEMBER_DELETED => "Le Prestataire a supprimé un membre de l'équipe de sécurité du document {$revisionDocumentTitle}. Une nouvelle validation est nécessaire.",
-                            default => "Une modification de l'équipe de sécurité du document {$revisionDocumentTitle} nécessite une nouvelle validation.",
-                        },
+                    CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_RESUBMITTED => [
+                        'title' => 'Employé soumis à nouveau',
+                        'message' => 'Un employé corrigé a été transmis pour une nouvelle vérification.',
+                    ],
+                    CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_VALIDATED => [
+                        'title' => 'Employé validé',
+                        'message' => 'La fiche employé a été validée.',
+                    ],
+                    CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_REJECTED => [
+                        'title' => 'Employé rejeté',
+                        'message' => 'La fiche employé a été rejetée.',
+                    ],
+                    CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_SUBMITTED => [
+                        'title' => 'Document employé à examiner',
+                        'message' => 'Un document employé a été téléversé et attend sa validation.',
+                    ],
+                    CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_REPLACED => [
+                        'title' => 'Document employé remplacé',
+                        'message' => 'Un document employé a été remplacé et attend sa validation.',
+                    ],
+                    CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_VALIDATED => [
+                        'title' => 'Document employé validé',
+                        'message' => 'Un document employé a été validé indépendamment.',
+                    ],
+                    CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_REJECTED => [
+                        'title' => 'Document employé rejeté',
+                        'message' => 'Un document employé a été rejeté.',
+                    ],
+                    CompanyMachineryWorkflowNotification::EVENT_MACHINERY_SUBMITTED => [
+                        'title' => 'Nouvel engin à examiner',
+                        'message' => 'Un engin a été soumis pour validation.',
+                    ],
+                    CompanyMachineryWorkflowNotification::EVENT_MACHINERY_RESUBMITTED => [
+                        'title' => 'Engin soumis à nouveau',
+                        'message' => 'Un engin corrigé a été transmis pour une nouvelle vérification.',
+                    ],
+                    CompanyMachineryWorkflowNotification::EVENT_MACHINERY_VALIDATED => [
+                        'title' => 'Engin validé',
+                        'message' => 'La fiche engin a été validée.',
+                    ],
+                    CompanyMachineryWorkflowNotification::EVENT_MACHINERY_REJECTED => [
+                        'title' => 'Engin rejeté',
+                        'message' => 'La fiche engin a été rejetée.',
+                    ],
+                    CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_SUBMITTED => [
+                        'title' => 'Document engin à examiner',
+                        'message' => 'Un document engin a été téléversé et attend sa validation.',
+                    ],
+                    CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_REPLACED => [
+                        'title' => 'Document engin remplacé',
+                        'message' => 'Un document engin a été remplacé et attend sa validation.',
+                    ],
+                    CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_VALIDATED => [
+                        'title' => 'Document engin validé',
+                        'message' => 'Un document engin a été validé indépendamment.',
+                    ],
+                    CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_REJECTED => [
+                        'title' => 'Document engin rejeté',
+                        'message' => 'Un document engin a été rejeté.',
+                    ],
+                    CompanyToolingWorkflowNotification::EVENT_TOOLING_SUBMITTED => [
+                        'title' => 'Nouvel outillage à examiner',
+                        'message' => 'Un outillage a été soumis pour validation.',
+                    ],
+                    CompanyToolingWorkflowNotification::EVENT_TOOLING_RESUBMITTED => [
+                        'title' => 'Outillage soumis à nouveau',
+                        'message' => 'Un outillage corrigé a été transmis pour une nouvelle vérification.',
+                    ],
+                    CompanyToolingWorkflowNotification::EVENT_TOOLING_VALIDATED => [
+                        'title' => 'Outillage validé',
+                        'message' => 'La fiche outillage a été validée.',
+                    ],
+                    CompanyToolingWorkflowNotification::EVENT_TOOLING_REJECTED => [
+                        'title' => 'Outillage rejeté',
+                        'message' => 'La fiche outillage a été rejetée.',
+                    ],
+                    CompanyToolingWorkflowNotification::EVENT_DOCUMENT_SUBMITTED => [
+                        'title' => 'Document outillage à examiner',
+                        'message' => 'Un document outillage a été téléversé et attend sa validation.',
+                    ],
+                    CompanyToolingWorkflowNotification::EVENT_DOCUMENT_REPLACED => [
+                        'title' => 'Document outillage remplacé',
+                        'message' => 'Un document outillage a été remplacé et attend sa validation.',
+                    ],
+                    CompanyToolingWorkflowNotification::EVENT_DOCUMENT_VALIDATED => [
+                        'title' => 'Document outillage validé',
+                        'message' => 'Un document outillage a été validé indépendamment.',
+                    ],
+                    CompanyToolingWorkflowNotification::EVENT_DOCUMENT_REJECTED => [
+                        'title' => 'Document outillage rejeté',
+                        'message' => 'Un document outillage a été rejeté.',
                     ],
                     default => [
-                        'title' => 'Mise à jour du document',
-                        'message' => 'Une mise à jour concernant ce dossier est disponible.',
+                        'title' => 'Notification',
+                        'message' => 'Une mise à jour est disponible.',
                     ],
                 };
 
-                if (! $canShowDocumentDetails) {
+                if (! $canShowDocumentDetails && ! $canShowEmployeeDetails && ! $canShowMachineryDetails && ! $canShowToolingDetails) {
                     $labels = [
                         'title' => 'Notification',
                         'message' => 'Une mise à jour est disponible.',
                     ];
                 }
 
-                $documentTitle = $canShowDocumentDetails
-                    ? ($document?->title ?? data_get($data, 'title'))
-                    : null;
-                $referenceNumber = $canShowDocumentDetails
-                    ? ($document?->reference_number ?? data_get($data, 'reference_number'))
-                    : null;
-                $prestataireName = $canShowDocumentDetails && $role !== 'prestataire'
-                    ? ($document?->prestataire?->name ?? data_get($data, 'prestataire_name'))
-                    : null;
-                $memberNames = $canShowDocumentDetails && is_array(data_get($data, 'member_names'))
-                    ? collect(data_get($data, 'member_names'))
-                        ->filter(fn (mixed $name): bool => is_string($name) && $name !== '')
-                        ->values()
-                        ->all()
-                    : [];
-                $statusLabel = match (data_get($data, 'status')) {
-                    Document::STATUS_PENDING => 'En attente',
-                    Document::STATUS_VALIDATED => 'Validé',
-                    Document::STATUS_REJECTED => 'Refusé',
+                $employeeStatus = in_array($event, [
+                    CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_SUBMITTED,
+                    CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_REPLACED,
+                    CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_VALIDATED,
+                    CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_REJECTED,
+                ], true)
+                    ? data_get($data, 'document_status')
+                    : data_get($data, 'employee_status');
+                $employeeStatusLabel = match ($employeeStatus) {
+                    CompanyEmployee::STATUS_DRAFT => 'Brouillon',
+                    CompanyEmployee::STATUS_PENDING => 'En attente',
+                    CompanyEmployee::STATUS_VALIDATED => 'Validé',
+                    CompanyEmployee::STATUS_REJECTED => 'Rejeté',
                     default => null,
                 };
-                $comment = $canShowDocumentDetails
-                    && $role !== 'responsable_securite'
-                    && in_array($event, [
-                        DocumentWorkflowNotification::EVENT_REJECTED,
-                        DocumentWorkflowNotification::EVENT_REVISION_REQUESTED,
-                    ], true)
-                    && is_string(data_get($data, 'comment'))
-                        ? data_get($data, 'comment')
-                        : null;
-                $revisionMemberName = $canShowDocumentDetails
-                    && $role === 'gestionnaire'
-                    && is_string(data_get($data, 'revision_member_name'))
-                        ? data_get($data, 'revision_member_name')
-                        : null;
-
-                $documentUrl = match ($role) {
-                    'prestataire' => $document !== null && $canShowDocumentDetails
-                        ? route('prestataire.documents.show', $document)
-                        : null,
-                    'gestionnaire' => $document !== null
-                        ? route('gestionnaire.documents.show', $document)
-                        : null,
-                    'responsable_securite' => $document !== null && $canShowDocumentDetails
-                        ? route('responsable-securite.documents.show', $document)
-                        : null,
+                $employeeUrl = $canShowEmployeeDetails
+                    ? match ($role) {
+                        'prestataire' => route('prestataire.employees.show', $employee),
+                        'gestionnaire' => route('gestionnaire.employees.show', $employee),
+                        default => null,
+                    }
+                : null;
+                $machineryStatus = in_array($event, [
+                    CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_SUBMITTED,
+                    CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_REPLACED,
+                    CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_VALIDATED,
+                    CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_REJECTED,
+                ], true)
+                    ? data_get($data, 'document_status')
+                    : data_get($data, 'machinery_status');
+                $machineryStatusLabel = match ($machineryStatus) {
+                    CompanyMachinery::STATUS_DRAFT => 'Brouillon',
+                    CompanyMachinery::STATUS_PENDING => 'En attente',
+                    CompanyMachinery::STATUS_VALIDATED => 'Validé',
+                    CompanyMachinery::STATUS_REJECTED => 'Rejeté',
+                    default => null,
                 };
+                $machineryUrl = $canShowMachineryDetails
+                    ? match ($role) {
+                        'prestataire' => route('prestataire.machinery.show', $machinery),
+                        'gestionnaire' => route('gestionnaire.machinery.show', $machinery),
+                        default => null,
+                    }
+                : null;
+                $toolingStatus = in_array($event, [
+                    CompanyToolingWorkflowNotification::EVENT_DOCUMENT_SUBMITTED,
+                    CompanyToolingWorkflowNotification::EVENT_DOCUMENT_REPLACED,
+                    CompanyToolingWorkflowNotification::EVENT_DOCUMENT_VALIDATED,
+                    CompanyToolingWorkflowNotification::EVENT_DOCUMENT_REJECTED,
+                ], true)
+                    ? data_get($data, 'document_status')
+                    : data_get($data, 'tooling_status');
+                $toolingStatusLabel = match ($toolingStatus) {
+                    CompanyTooling::STATUS_DRAFT => 'Brouillon',
+                    CompanyTooling::STATUS_PENDING => 'En attente',
+                    CompanyTooling::STATUS_VALIDATED => 'Validé',
+                    CompanyTooling::STATUS_REJECTED => 'Rejeté',
+                    default => null,
+                };
+                $toolingUrl = $canShowToolingDetails
+                    ? match ($role) {
+                        'prestataire' => route('prestataire.toolings.show', $tooling),
+                        'gestionnaire' => route('gestionnaire.toolings.show', $tooling),
+                        default => null,
+                    }
+                : null;
 
                 return [
                     'notification' => $notification,
                     'title' => $labels['title'],
                     'message' => $labels['message'],
-                    'documentTitle' => is_string($documentTitle) ? $documentTitle : null,
-                    'referenceNumber' => is_string($referenceNumber) ? $referenceNumber : null,
-                    'prestataireName' => is_string($prestataireName) ? $prestataireName : null,
-                    'memberNames' => $memberNames,
-                    'revisionMemberName' => $revisionMemberName,
-                    'statusLabel' => $canShowDocumentDetails && is_string($statusLabel) ? $statusLabel : null,
-                    'dateLabel' => match (true) {
-                        $role === 'gestionnaire' && $event === DocumentWorkflowNotification::EVENT_SUBMITTED => 'Soumis le',
-                        $role === 'gestionnaire' && $event === DocumentWorkflowNotification::EVENT_RESUBMITTED => 'Renvoyé le',
-                        $role === 'gestionnaire' && $event === DocumentWorkflowNotification::EVENT_UPDATED => 'Mis à jour le',
-                        $role === 'gestionnaire' && $event === DocumentWorkflowNotification::EVENT_REVISION_REQUESTED => 'Modification le',
-                        $role === 'responsable_securite' && $event === DocumentWorkflowNotification::EVENT_VALIDATED => 'Validé le',
-                        default => null,
-                    },
-                    'comment' => $comment,
-                    'documentUrl' => $documentUrl,
+                    'documentTitle' => $canShowDocumentDetails ? ($document?->title ?? data_get($data, 'title')) : null,
+                    'referenceNumber' => $canShowDocumentDetails ? ($document?->reference_number ?? data_get($data, 'reference_number')) : null,
+                    'prestataireName' => $canShowDocumentDetails ? ($document?->prestataire?->name ?? data_get($data, 'prestataire_name')) : null,
+                    'memberNames' => [],
+                    'revisionMemberName' => null,
+                    'statusLabel' => $canShowDocumentDetails ? 'Validé' : null,
+                    'dateLabel' => $canShowDocumentDetails ? 'Validé le' : null,
+                    'comment' => (
+                        ($canShowEmployeeDetails && in_array($event, [
+                            CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_REJECTED,
+                            CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_REJECTED,
+                        ], true))
+                        || ($canShowMachineryDetails && in_array($event, [
+                            CompanyMachineryWorkflowNotification::EVENT_MACHINERY_REJECTED,
+                            CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_REJECTED,
+                        ], true))
+                        || ($canShowToolingDetails && in_array($event, [
+                            CompanyToolingWorkflowNotification::EVENT_TOOLING_REJECTED,
+                            CompanyToolingWorkflowNotification::EVENT_DOCUMENT_REJECTED,
+                        ], true))
+                    )
+                        && is_string(data_get($data, 'comment'))
+                            ? data_get($data, 'comment')
+                            : null,
+                    'documentUrl' => $canShowDocumentDetails
+                        ? route('responsable-securite.documents.show', $document)
+                        : null,
+                    'memberUrl' => null,
+                    'memberRequestType' => null,
+                    'employeeName' => $canShowEmployeeDetails
+                        ? (trim($employee->first_name.' '.$employee->last_name) ?: 'Employé')
+                        : null,
+                    'employeeCompanyName' => $canShowEmployeeDetails ? $employee->company?->name : null,
+                    'employeePrestataireName' => $canShowEmployeeDetails && $role === 'gestionnaire'
+                        ? $employee->company?->prestataire?->name
+                        : null,
+                    'employeeDocumentLabel' => $canShowEmployeeDetails ? data_get($data, 'document_label') : null,
+                    'employeeStatusLabel' => $canShowEmployeeDetails && is_string($employeeStatusLabel) ? $employeeStatusLabel : null,
+                    'employeeUrl' => $employeeUrl,
+                    'employeeDateLabel' => $role === 'gestionnaire' && in_array($event, [
+                        CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_SUBMITTED,
+                        CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_RESUBMITTED,
+                        CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_SUBMITTED,
+                        CompanyEmployeeWorkflowNotification::EVENT_DOCUMENT_REPLACED,
+                    ], true)
+                        ? ($event === CompanyEmployeeWorkflowNotification::EVENT_EMPLOYEE_RESUBMITTED ? 'Renvoyé le' : 'Soumis le')
+                        : null,
+                    'machineryName' => $canShowMachineryDetails ? $machinery->designation : null,
+                    'machineryUrl' => $machineryUrl,
+                    'machineryCompanyName' => $canShowMachineryDetails ? $machinery->company?->name : null,
+                    'machineryPrestataireName' => $canShowMachineryDetails && $role === 'gestionnaire'
+                        ? $machinery->company?->prestataire?->name
+                        : null,
+                    'machineryDocumentLabel' => $canShowMachineryDetails ? data_get($data, 'document_label') : null,
+                    'machineryStatusLabel' => $canShowMachineryDetails && is_string($machineryStatusLabel) ? $machineryStatusLabel : null,
+                    'machineryDateLabel' => $role === 'gestionnaire' && in_array($event, [
+                        CompanyMachineryWorkflowNotification::EVENT_MACHINERY_SUBMITTED,
+                        CompanyMachineryWorkflowNotification::EVENT_MACHINERY_RESUBMITTED,
+                        CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_SUBMITTED,
+                        CompanyMachineryWorkflowNotification::EVENT_DOCUMENT_REPLACED,
+                    ], true)
+                        ? ($event === CompanyMachineryWorkflowNotification::EVENT_MACHINERY_RESUBMITTED ? 'Renvoyé le' : 'Soumis le')
+                        : null,
+                    'toolingName' => $canShowToolingDetails ? $tooling->designation : null,
+                    'toolingUrl' => $toolingUrl,
+                    'toolingCompanyName' => $canShowToolingDetails ? $tooling->company?->name : null,
+                    'toolingPrestataireName' => $canShowToolingDetails && $role === 'gestionnaire'
+                        ? $tooling->company?->prestataire?->name
+                        : null,
+                    'toolingDocumentLabel' => $canShowToolingDetails ? data_get($data, 'document_label') : null,
+                    'toolingStatusLabel' => $canShowToolingDetails && is_string($toolingStatusLabel) ? $toolingStatusLabel : null,
+                    'toolingDateLabel' => $role === 'gestionnaire' && in_array($event, [
+                        CompanyToolingWorkflowNotification::EVENT_TOOLING_SUBMITTED,
+                        CompanyToolingWorkflowNotification::EVENT_TOOLING_RESUBMITTED,
+                        CompanyToolingWorkflowNotification::EVENT_DOCUMENT_SUBMITTED,
+                        CompanyToolingWorkflowNotification::EVENT_DOCUMENT_REPLACED,
+                    ], true)
+                        ? ($event === CompanyToolingWorkflowNotification::EVENT_TOOLING_RESUBMITTED ? 'Renvoyé le' : 'Soumis le')
+                        : null,
                 ];
             });
 
@@ -192,7 +456,9 @@ class NotificationController extends Controller
             'notificationItems' => $notificationItems,
             'roleLabel' => $roleLabels[$role],
             'routePrefix' => $role === 'responsable_securite' ? 'responsable-securite' : $role,
-            'navigation' => DashboardController::navigationForRole($role),
+            'navigation' => $role === 'gestionnaire'
+                ? DashboardController::navigationForUser($user)
+                : DashboardController::navigationForRole($role),
         ]);
     }
 
@@ -201,7 +467,7 @@ class NotificationController extends Controller
         $user = $request->user();
         abort_unless($user instanceof User, 403);
 
-        $ownedNotification = $user->notifications()
+        $ownedNotification = $user->visibleNotifications()
             ->whereKey($notification)
             ->firstOrFail();
 
@@ -217,7 +483,7 @@ class NotificationController extends Controller
         abort_unless($user instanceof User, 403);
 
         $markedAt = now();
-        $updatedCount = $user->unreadNotifications()->update([
+        $updatedCount = $user->visibleNotifications()->whereNull('read_at')->update([
             'read_at' => $markedAt,
             'updated_at' => $markedAt,
         ]);

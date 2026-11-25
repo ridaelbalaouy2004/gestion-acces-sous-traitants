@@ -50,6 +50,68 @@ body {
     outline: none;
 }
 
+.file-dropzone-target:focus-within {
+    outline: 2px solid #1447e6;
+    outline-offset: 2px;
+}
+
+.file-dropzone[data-drag-active='true'] .file-dropzone-target {
+    border-color: #1447e6;
+    background-color: rgb(20 71 230 / 7%);
+    box-shadow: 0 0 0 4px rgb(20 71 230 / 12%);
+}
+
+.file-dropzone[data-invalid='true'] .file-dropzone-target {
+    border-color: #b91c1c;
+}
+
+.form-control.filter-control:focus {
+    border-color: #1447E6;
+    box-shadow: 0 0 0 4px rgb(20 71 230 / 13%);
+}
+
+.filter-control {
+    accent-color: #1447E6;
+}
+
+.filter-control option:checked {
+    background-color: #1447E6;
+    color: #fff;
+}
+
+.filter-action {
+    background-color: #1447E6;
+    transition: background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.filter-action:hover {
+    background-color: #103BBF;
+}
+
+.filter-action:focus-visible,
+.filter-reset:focus-visible {
+    outline: 2px solid #1447E6;
+    outline-offset: 2px;
+}
+
+.filter-action:active {
+    background-color: #0F36AD;
+}
+
+.filter-reset {
+    border-color: #1447E6;
+    color: #1447E6;
+    transition: background-color 150ms ease;
+}
+
+.filter-reset:hover {
+    background-color: rgb(20 71 230 / 8%);
+}
+
+.filter-reset:active {
+    background-color: rgb(20 71 230 / 14%);
+}
+
 .primary-action {
     background: linear-gradient(105deg, #2456b8, #1b438e);
     transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;

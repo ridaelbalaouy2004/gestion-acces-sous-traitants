@@ -11,6 +11,9 @@
 
     <section aria-label="Résumé des validations" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         @include('shared.stat-card', ['label' => 'Documents validés', 'value' => $stats['validated'], 'tone' => 'green', 'icon' => 'check'])
+        @if ($memberStats ?? null)
+            @include('shared.stat-card', ['label' => 'Membres validés', 'value' => $memberStats['validated'], 'tone' => 'blue', 'icon' => 'users'])
+        @endif
     </section>
 
     <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="recent-validations-title">
@@ -25,6 +28,7 @@
             'documents' => $documents,
             'showPrestataire' => true,
             'dateColumn' => 'validated_at',
+            'detailRoute' => 'responsable-securite.documents.show',
             'emptyTitle' => 'Aucun document validé',
             'emptyMessage' => 'Les documents validés seront affichés ici.',
         ])

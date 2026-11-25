@@ -1,5 +1,9 @@
 //
 
+import { initializeFileDropzones } from './file-dropzone.js';
+
+initializeFileDropzones();
+
 const passwordToggle = document.querySelector('[data-toggle-password]');
 
 passwordToggle?.addEventListener('click', () => {
@@ -63,6 +67,250 @@ document.querySelectorAll('form[data-confirm]').forEach((form) => {
     form.addEventListener('submit', (event) => {
         if (!window.confirm(form.dataset.confirm ?? 'Confirmer cette action ?')) {
             event.preventDefault();
+        }
+    });
+});
+
+document.querySelectorAll('form[data-guide-email-form]').forEach((form) => {
+    const dialog = document.getElementById(form.dataset.confirmationDialog ?? '');
+    const confirmButton = dialog?.querySelector('[data-guide-email-confirm]');
+    const cancelButton = dialog?.querySelector('[data-guide-email-cancel]');
+    const confirmationInput = form.querySelector('[data-guide-email-confirmed]');
+    const submitButton = form.querySelector('[data-guide-email-submit]');
+
+    if (
+        !(dialog instanceof HTMLDialogElement)
+        || !(confirmButton instanceof HTMLButtonElement)
+        || !(cancelButton instanceof HTMLButtonElement)
+        || !(confirmationInput instanceof HTMLInputElement)
+        || !(submitButton instanceof HTMLButtonElement)
+    ) {
+        return;
+    }
+
+    let confirmed = false;
+
+    form.addEventListener('submit', (event) => {
+        if (!confirmed) {
+            event.preventDefault();
+            dialog.showModal();
+            return;
+        }
+
+        confirmed = false;
+        submitButton.disabled = true;
+        submitButton.textContent = 'Envoi en cours…';
+    });
+
+    confirmButton.addEventListener('click', () => {
+        confirmed = true;
+        confirmationInput.value = 'yes';
+        confirmButton.disabled = true;
+        dialog.close();
+        form.requestSubmit();
+    });
+
+    cancelButton.addEventListener('click', () => {
+        dialog.close();
+    });
+
+    dialog.addEventListener('close', () => {
+        confirmButton.disabled = false;
+    });
+});
+
+const excelImportModal = document.querySelector('[data-excel-import-modal]');
+
+document.addEventListener('click', async (event) => {
+    if (!(event.target instanceof Element) || !(excelImportModal instanceof HTMLDialogElement)) {
+        return;
+    }
+
+    const closeButton = event.target.closest('[data-excel-import-close]');
+
+    if (closeButton instanceof HTMLButtonElement) {
+        excelImportModal.close();
+        return;
+    }
+
+    const trigger = event.target.closest('[data-excel-import-trigger]');
+
+    if (!(trigger instanceof HTMLButtonElement)) {
+        if (event.target === excelImportModal) {
+            excelImportModal.close();
+        }
+
+        return;
+    }
+
+    const content = excelImportModal.querySelector('[data-excel-import-modal-content]');
+    const title = excelImportModal.querySelector('[data-excel-import-modal-title]');
+    const dataUrl = trigger.dataset.url;
+
+    if (!(content instanceof HTMLElement) || !(title instanceof HTMLElement) || !dataUrl) {
+        return;
+    }
+
+    title.textContent = trigger.dataset.title ?? 'Données Excel importées';
+    content.textContent = 'Chargement des données importées…';
+    excelImportModal.showModal();
+
+    try {
+        const response = await fetch(dataUrl, {
+            headers: {
+                Accept: 'text/html',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+            throw new Error(`Impossible de charger les données Excel (${response.status}).`);
+        }
+
+        const markup = await response.text();
+
+        if (excelImportModal.open) {
+            content.innerHTML = markup;
+        }
+    } catch {
+        if (excelImportModal.open) {
+            content.textContent = 'Les données Excel n’ont pas pu être chargées. Fermez cette fenêtre et réessayez.';
+        }
+    }
+});
+
+document.addEventListener('error', (event) => {
+    const image = event.target;
+
+    if (!(image instanceof HTMLImageElement)) {
+        return;
+    }
+
+    const fallbackSelector = image.hasAttribute('data-team-employee-photo')
+        ? '[data-profile-photo-error-fallback]'
+        : image.hasAttribute('data-company-machinery-photo')
+            ? '[data-machinery-photo-error-fallback]'
+            : image.hasAttribute('data-company-tooling-photo')
+                ? '[data-tooling-photo-error-fallback]'
+            : null;
+
+    if (fallbackSelector === null) {
+        return;
+    }
+
+    const fallback = image.parentElement?.querySelector(fallbackSelector);
+
+    if (!(fallback instanceof HTMLElement)) {
+        return;
+    }
+
+    image.hidden = true;
+    fallback.hidden = false;
+}, true);
+
+document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) {
+        return;
+    }
+
+    const trainingEditButton = event.target.closest('[data-training-edit-open]');
+
+    if (trainingEditButton instanceof HTMLButtonElement) {
+        const trainingCard = trainingEditButton.closest('[data-training-card]');
+        const editForm = trainingCard?.querySelector('[data-training-edit-form]');
+
+        if (!(editForm instanceof HTMLFormElement)) {
+            return;
+        }
+
+        editForm.hidden = false;
+        trainingEditButton.setAttribute('aria-expanded', 'true');
+
+        const firstField = editForm.querySelector('input:not([type="hidden"]), select, textarea');
+
+        if (firstField instanceof HTMLElement) {
+            firstField.focus();
+        }
+
+        return;
+    }
+
+    const trainingEditCancelButton = event.target.closest('[data-training-edit-cancel]');
+
+    if (trainingEditCancelButton instanceof HTMLButtonElement) {
+        const trainingCard = trainingEditCancelButton.closest('[data-training-card]');
+        const editForm = trainingCard?.querySelector('[data-training-edit-form]');
+        const trainingEditButton = trainingCard?.querySelector('[data-training-edit-open]');
+
+        if (
+            !(editForm instanceof HTMLFormElement)
+            || !(trainingEditButton instanceof HTMLButtonElement)
+        ) {
+            return;
+        }
+
+        editForm.reset();
+        editForm.hidden = true;
+        trainingEditButton.setAttribute('aria-expanded', 'false');
+        trainingEditButton.focus();
+        return;
+    }
+
+    const navigationContainer = event.target.closest('[data-navigate-to]');
+
+    if (
+        !(navigationContainer instanceof HTMLElement)
+        || event.target.closest('a, button, input, select, textarea, form, label, summary, [role="button"], [role="link"], [contenteditable="true"], [data-no-row-navigation]')
+    ) {
+        return;
+    }
+
+    const destination = navigationContainer.dataset.navigateTo;
+
+    if (destination) {
+        window.location.assign(destination);
+    }
+});
+
+document.addEventListener('keydown', (event) => {
+    if (!(event.target instanceof HTMLElement) || !event.target.hasAttribute('data-navigate-to')) {
+        return;
+    }
+
+    if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+    }
+
+    event.preventDefault();
+
+    const destination = event.target.dataset.navigateTo;
+
+    if (destination) {
+        window.location.assign(destination);
+    }
+});
+
+document.querySelectorAll('[data-copy-password]').forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+        return;
+    }
+
+    button.addEventListener('click', async () => {
+        const target = document.getElementById(button.dataset.copyPassword ?? '');
+        const feedback = document.querySelector('[data-copy-feedback]');
+
+        if (!(target instanceof HTMLInputElement) || !(feedback instanceof HTMLElement)) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(target.value);
+            feedback.textContent = 'Le mot de passe temporaire a été copié.';
+        } catch {
+            target.focus();
+            target.select();
+            feedback.textContent = 'La copie automatique a échoué. Le mot de passe est sélectionné pour une copie manuelle.';
         }
     });
 });

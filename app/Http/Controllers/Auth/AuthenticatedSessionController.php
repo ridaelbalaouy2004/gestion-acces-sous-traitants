@@ -26,7 +26,7 @@ class AuthenticatedSessionController extends Controller
             return view('auth.login');
         }
 
-        $dashboardRoute = $this->dashboardRouteFor($user);
+        $dashboardRoute = $this->destinationRouteFor($user);
 
         if ($dashboardRoute !== null) {
             return to_route($dashboardRoute);
@@ -44,7 +44,7 @@ class AuthenticatedSessionController extends Controller
     public function store(Request $request): RedirectResponse
     {
         if ($request->user() !== null) {
-            $dashboardRoute = $this->dashboardRouteFor($request->user());
+            $dashboardRoute = $this->destinationRouteFor($request->user());
 
             if ($dashboardRoute !== null) {
                 return to_route($dashboardRoute);
@@ -70,17 +70,32 @@ class AuthenticatedSessionController extends Controller
         ]);
 
         if (! Auth::attempt(
-            ['email' => $credentials['email'], 'password' => $credentials['password']],
+            [
+                'email' => $credentials['email'],
+                'password' => $credentials['password'],
+            ],
             $request->boolean('remember'),
         )) {
             return to_route('login')
-                ->withErrors(['email' => 'Les identifiants fournis sont incorrects.'])
+                ->withErrors(['email' => 'Les identifiants sont incorrects ou le compte est désactivé.'])
+                ->withInput($request->only('email'));
+        }
+
+        $authenticatedUser = $request->user();
+
+        if ($authenticatedUser instanceof User && ! $authenticatedUser->isAccountActive()) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return to_route('login')
+                ->withErrors(['email' => 'Les identifiants sont incorrects ou le compte est désactivé.'])
                 ->withInput($request->only('email'));
         }
 
         $request->session()->regenerate();
 
-        $dashboardRoute = $this->dashboardRouteFor($request->user());
+        $dashboardRoute = $this->destinationRouteFor($request->user());
 
         if ($dashboardRoute === null) {
             Auth::logout();
@@ -119,5 +134,18 @@ class AuthenticatedSessionController extends Controller
         }
 
         return null;
+    }
+
+    private function destinationRouteFor(?Authenticatable $user): ?string
+    {
+        if (! $user instanceof User || ! $user->must_change_password) {
+            return $this->dashboardRouteFor($user);
+        }
+
+        if ($user->roles()->where('name', 'prestataire')->exists()) {
+            return 'prestataire.password.edit';
+        }
+
+        return $this->dashboardRouteFor($user);
     }
 }

@@ -14,7 +14,7 @@ class ShareUnreadNotificationCount
     {
         $user = $request->user();
         $unreadCount = $request->isMethod('GET') || $request->isMethod('HEAD')
-            ? ($user instanceof User ? $user->unreadNotifications()->count() : 0)
+            ? ($user instanceof User ? $user->visibleNotifications()->whereNull('read_at')->count() : 0)
             : 0;
 
         View::share('unreadNotificationCount', $unreadCount);

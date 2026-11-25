@@ -6,9 +6,19 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['document_id', 'name', 'cin', 'position', 'email', 'phone'])]
+#[Fillable([
+    'document_id',
+    'name',
+    'cin',
+    'position',
+    'email',
+    'phone',
+    'status',
+])]
 class SafetyTeamMember extends Model
 {
+    public const STATUS_VALIDATED = 'validated';
+
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);

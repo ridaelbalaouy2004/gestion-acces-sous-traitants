@@ -4,14 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\Document;
 use App\Models\Role;
+use App\Models\SafetyTeamMember;
 use App\Models\User;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ResponsableSecuriteDocumentsTest extends TestCase
 {
-    use DatabaseTransactions;
+    use RefreshDatabase;
 
     public function test_responsable_securite_sees_only_validated_documents_and_can_search_them(): void
     {
@@ -31,6 +32,7 @@ class ResponsableSecuriteDocumentsTest extends TestCase
             'name' => 'Membre validé visible',
             'cin' => 'CIN-VALIDATED-001',
             'position' => 'Superviseur',
+            'status' => SafetyTeamMember::STATUS_VALIDATED,
         ]);
         $this->createDocument($prestataire, [
             'title' => 'Document en attente confidentiel',
@@ -46,6 +48,7 @@ class ResponsableSecuriteDocumentsTest extends TestCase
             ->assertOk()
             ->assertSee($validatedDocument->reference_number)
             ->assertSee($validatedDocument->title)
+            ->assertSee('data-navigate-to="'.route('responsable-securite.documents.show', $validatedDocument).'"', false)
             ->assertSee('Entreprise Recherche')
             ->assertSee('Prestataire Recherche')
             ->assertSee('Gestionnaire Validateur')
@@ -101,6 +104,7 @@ class ResponsableSecuriteDocumentsTest extends TestCase
             'position' => 'Chef d’équipe',
             'email' => 'membre@example.test',
             'phone' => '+33102030405',
+            'status' => SafetyTeamMember::STATUS_VALIDATED,
         ]);
 
         $this->actingAs($securityLead)
@@ -183,7 +187,7 @@ class ResponsableSecuriteDocumentsTest extends TestCase
         $securityLead = $this->userWithRole('responsable_securite');
         $prestataire = $this->userWithRole('prestataire');
         $validatedCount = Document::query()->where('status', Document::STATUS_VALIDATED)->count() + 2;
-        $this->createDocument($prestataire, [
+        $validatedDocument = $this->createDocument($prestataire, [
             'title' => 'Dossier validé récent',
             'status' => Document::STATUS_VALIDATED,
             'validated_at' => now(),
@@ -213,6 +217,7 @@ class ResponsableSecuriteDocumentsTest extends TestCase
             ])
             ->assertSee('Dossier validé récent')
             ->assertSee(route('responsable-securite.documents.index'))
+            ->assertSee('data-navigate-to="'.route('responsable-securite.documents.show', $validatedDocument).'"', false)
             ->assertDontSee('Dossier en attente privé')
             ->assertDontSee('Dossier rejeté privé');
     }
@@ -256,12 +261,11 @@ class ResponsableSecuriteDocumentsTest extends TestCase
             ->get(route('gestionnaire.dashboard'))
             ->assertForbidden();
 
-        $this->get(route('gestionnaire.documents.index'))->assertForbidden();
-        $this->get('/gestionnaire/equipe-securite')->assertNotFound();
-        $this->post(route('gestionnaire.documents.approve', $document))->assertForbidden();
+        $this->get('/gestionnaire/documents')->assertNotFound();
+        $this->get('/gestionnaire/membres-securite')->assertNotFound();
         $this->get(route('prestataire.dashboard'))->assertForbidden();
-        $this->get(route('prestataire.documents.create'))->assertForbidden();
-        $this->post(route('prestataire.documents.store'))->assertForbidden();
+        $this->get('/prestataire/documents/create')->assertNotFound();
+        $this->post('/prestataire/documents')->assertNotFound();
     }
 
     public function test_guests_cannot_access_security_document_routes(): void
@@ -300,7 +304,8 @@ class ResponsableSecuriteDocumentsTest extends TestCase
      */
     private function createDocument(User $prestataire, array $attributes = []): Document
     {
-        return $prestataire->documents()->create(array_replace([
+        return Document::query()->create(array_replace([
+            'prestataire_id' => $prestataire->getKey(),
             'title' => 'Document de test',
             'reference_number' => null,
             'company_name' => 'Entreprise Test',
@@ -324,6 +329,9 @@ class ResponsableSecuriteDocumentsTest extends TestCase
         );
         $user = User::factory()->create($attributes);
         $user->roles()->attach($role);
+        if ($roleName === 'gestionnaire') {
+            $this->designatePrimaryManagerForLegacyTests($user);
+        }
 
         return $user;
     }

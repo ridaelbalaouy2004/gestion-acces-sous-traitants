@@ -56,9 +56,4 @@ class Document extends Model
     {
         return $this->hasMany(SafetyTeamMember::class);
     }
-
-    public function revisions(): HasMany
-    {
-        return $this->hasMany(DocumentRevision::class);
-    }
 }

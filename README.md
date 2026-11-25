@@ -43,14 +43,20 @@ Boost provides your agent 15+ tools and skills that help agents build Laravel ap
 
 ## Subcontractor access database
 
-Start MySQL in XAMPP and create the `db_gestion_acces` database in phpMyAdmin if it does not already exist. Configure `.env` to connect to it, then apply the migrations:
+Start MySQL in XAMPP and create the `db_gestion_acces` database in phpMyAdmin if it does not already exist. Configure `.env` to connect to it. Back up any database containing useful data before applying migrations; never use `migrate:fresh` or `db:wipe` on it.
 
 ```bash
 php artisan migrate
+php artisan db:seed --class=PermissionSeeder
+```
+
+For local/development sample accounts only, run the full seeder:
+
+```bash
 php artisan db:seed
 ```
 
-In the `local` or `development` environment, the seeder creates these sample accounts:
+The full seeder creates these sample accounts only in `local` or `development`. Run it only in those environments; on an existing installation, seed the permission catalog only.
 
 | Role | Email |
 | --- | --- |
@@ -59,6 +65,18 @@ In the `local` or `development` environment, the seeder creates these sample acc
 | responsable_securite | securite@example.com |
 
 The development-only password for all three accounts is `LocalDev!Access2026`. Change it before using these accounts outside a local development environment.
+
+Existing Gestionnaire accounts are preserved, but they receive no implicit permissions or Prestataire assignments. Until a Principal is designated and an employee is explicitly configured, that employee cannot access Prestataire records.
+
+### Désigner le Gestionnaire Principal
+
+Aucun compte n'est désigné automatiquement comme Gestionnaire Principal. Après avoir sauvegardé la base et appliqué les migrations en environnement contrôlé, créez ou choisissez un compte Gestionnaire actif, puis exécutez la commande dans un terminal interactif :
+
+```bash
+php artisan app:designate-primary-manager gestionnaire@example.com
+```
+
+La commande vérifie le rôle Gestionnaire, exige une confirmation explicite et ne fonctionne que si aucun Gestionnaire Principal n'est encore défini. Elle n'affiche ni ne crée de mot de passe. Une fois désigné, le Gestionnaire Principal peut transférer cette responsabilité depuis la fiche d'un autre Gestionnaire actif. Les affectations et transferts sont conservés dans leur historique; les employés n'obtiennent aucune permission ni affectation implicite.
 
 ## Contributing
 

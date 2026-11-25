@@ -4,7 +4,9 @@ namespace App\Http\Controllers\ResponsableSecurite;
 
 use App\Http\Controllers\Controller;
 use App\Models\Document;
+use App\Models\SafetyTeamMember;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -40,7 +42,8 @@ class DocumentController extends Controller
             ->with([
                 'prestataire:id,name',
                 'validatedBy:id,name',
-                'safetyTeamMembers:id,document_id,name,cin,position,email,phone',
+                'safetyTeamMembers' => fn (HasMany $query) => $query->where('status', SafetyTeamMember::STATUS_VALIDATED)
+                    ->select(['id', 'document_id', 'name', 'cin', 'position', 'email', 'phone', 'status']),
             ])
             ->when($search !== null, function (Builder $query) use ($search): void {
                 $query->where(function (Builder $query) use ($search): void {
@@ -70,7 +73,7 @@ class DocumentController extends Controller
         $document->load([
             'prestataire:id,name,email',
             'validatedBy:id,name,email',
-            'safetyTeamMembers',
+            'safetyTeamMembers' => fn (HasMany $query) => $query->where('status', SafetyTeamMember::STATUS_VALIDATED),
         ]);
 
         return $this->page('responsable-securite.documents.show', [
