@@ -140,12 +140,13 @@ function renderFileSelection(zone, files) {
 
         const iconPresentation = fileIconPresentation(file);
 
-        row.className = 'flex min-w-0 items-start gap-3';
+        row.className = 'flex w-full min-w-0 items-start gap-3';
         icon.className = `inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[0.65rem] font-bold ${iconPresentation.className}`;
         icon.textContent = iconPresentation.label;
         icon.setAttribute('aria-hidden', 'true');
         details.className = 'flex min-w-0 flex-1 flex-col gap-0.5';
-        fileName.className = 'break-all text-sm font-semibold text-slate-800';
+        fileName.className = 'block min-w-0 flex-1 truncate overflow-hidden whitespace-nowrap text-sm font-semibold text-slate-800';
+        fileName.setAttribute('title', file.name);
         fileName.textContent = file.name;
         fileSize.className = 'text-xs text-slate-600';
         fileSize.textContent = formatFileSize(file.size);
@@ -302,8 +303,9 @@ function showServerConfirmedUpload(root) {
     sentBadge.textContent = 'Envoyé';
     confirmation.className = 'font-semibold';
     confirmation.textContent = 'Fichier envoyé avec succès';
-    fileNames.className = 'break-all';
+    fileNames.className = 'min-w-0 flex-1 truncate overflow-hidden whitespace-nowrap';
     fileNames.textContent = names.filter((name) => typeof name === 'string').join(', ');
+    fileNames.setAttribute('title', fileNames.textContent);
     status.append(sentBadge, confirmation, fileNames);
 }
 

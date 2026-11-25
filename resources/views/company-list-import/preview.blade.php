@@ -42,7 +42,7 @@
         <section class="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-5">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Fichier</p>
-                <p class="mt-1 break-all text-sm font-medium text-slate-900">{{ $preview['file_name'] }}</p>
+                <p class="mt-1 truncate max-w-[200px] sm:max-w-xs block text-sm font-medium text-slate-900" title="{{ $preview['file_name'] }}">{{ $preview['file_name'] }}</p>
             </div>
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Destination</p>

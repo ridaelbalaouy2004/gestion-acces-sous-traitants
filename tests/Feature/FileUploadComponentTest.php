@@ -30,5 +30,15 @@ class FileUploadComponentTest extends TestCase
         $this->assertStringContainsString('data-file-upload-progress-state hidden', $html);
         $this->assertStringContainsString('<progress data-file-upload-progress max="100"', $html);
         $this->assertStringNotContainsString('data-file-upload-progress max="100" value=', $html);
+        $this->assertStringContainsString(
+            'class="flex min-w-0 flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-3 sm:flex-row sm:items-start sm:justify-between"',
+            $html,
+        );
+        $this->assertStringContainsString(
+            'class="w-full min-w-0 flex-1 space-y-2 sm:w-auto"',
+            $html,
+        );
+        $this->assertStringContainsString('shrink-0 self-start', $html);
+        $this->assertStringContainsString('Retirer la sélection', $html);
     }
 }

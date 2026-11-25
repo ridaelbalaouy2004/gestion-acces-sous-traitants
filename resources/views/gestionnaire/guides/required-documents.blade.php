@@ -49,8 +49,14 @@
                 <label for="required-documents-guide-file" class="mb-1.5 block text-sm font-medium text-slate-700">
                     {{ $guide === null ? 'Téléverser le Guide Word' : 'Remplacer le Guide Word' }}
                 </label>
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
-                    <input id="required-documents-guide-file" name="guide" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required class="form-control min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                <div class="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                    <x-file-upload
+                        id="required-documents-guide-file"
+                        name="guide"
+                        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        :max-bytes="10485760"
+                        required
+                    />
                     <button type="submit" class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800">
                         {{ $guide === null ? 'Téléverser le Guide Word' : 'Remplacer le Guide' }}
                     </button>

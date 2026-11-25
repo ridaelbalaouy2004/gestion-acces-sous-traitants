@@ -18,9 +18,9 @@
         <span class="text-xs text-slate-500">Taille maximale par fichier : {{ $maxSizeInMegabytes }} Mo.</span>
     </label>
 
-    <div data-file-dropzone-selection hidden class="flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-3 sm:flex-row sm:items-start sm:justify-between">
-        <ul data-file-dropzone-files class="min-w-0 flex-1 space-y-2"></ul>
-        <button type="button" data-file-dropzone-remove class="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800">
+    <div data-file-dropzone-selection hidden class="flex min-w-0 flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-3 sm:flex-row sm:items-start sm:justify-between">
+        <ul data-file-dropzone-files class="w-full min-w-0 flex-1 space-y-2 sm:w-auto"></ul>
+        <button type="button" data-file-dropzone-remove class="inline-flex min-h-9 shrink-0 self-start items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800">
             Retirer la sélection
         </button>
     </div>

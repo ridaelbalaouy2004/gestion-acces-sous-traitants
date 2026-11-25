@@ -74,10 +74,18 @@ class CompanyListImportTest extends TestCase
         $previewResponse = $this->get($previewUrl)
             ->assertOk()
             ->assertSee('Aperçu de l’importation')
-            ->assertSee('liste-personnel.xlsx')
+            ->assertSee($document->file_name)
             ->assertSee('N° CIN')
             ->assertSee('Salma')
             ->assertSee('Annuler');
+        $this->assertMatchesRegularExpression(
+            '/^liste-exhaustive-des-effectifs-sur-site-avec-numero-de-serie-de-cadenas-de-consignation-entreprise-import-employes-\d{8}\.xlsx$/',
+            $document->file_name,
+        );
+        $this->assertStringContainsString(
+            'title="'.$document->file_name.'"',
+            $previewResponse->getContent(),
+        );
         $previewResponse->assertViewHas('preview', function (array $preview): bool {
             return $preview['total_rows'] === 2
                 && $preview['valid_rows'] === 2

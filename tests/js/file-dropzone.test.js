@@ -332,7 +332,7 @@ test('drop events populate the real upload input and the remove action clears it
         const progressMessage = new FakeElement(ownerDocument);
         const input = new FakeInput(ownerDocument, root);
         input.dropzone = zone;
-        input.accept = '.pdf,.png,application/pdf,image/png';
+        input.accept = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
 
         initializeFileDropzones(root);
 
@@ -360,13 +360,29 @@ test('drop events populate the real upload input and the remove action clears it
         assert.equal(list.children[0].children[1].children[1].textContent, '100 octets');
         assert.equal(list.children[0].children[1].children[2].textContent, 'Prêt à envoyer');
 
-        const replacementFile = fakeFile('replacement.png', 'image/png', 200);
+        const selectedNames = [
+            fakeFile('photo.jpg', 'image/jpeg', 200),
+            fakeFile('IMG_20240930_152353_622 (1).jpg', 'image/jpeg', 300),
+            fakeFile('document_assurance_responsabilite_civile_2026.pdf', 'application/pdf', 400),
+            fakeFile('Document assurance & responsabilité civile - édition finale (client #2026) — copie.pdf', 'application/pdf', 500),
+        ];
+        input.multiple = true;
         root.listeners.drop({
             target: input,
-            dataTransfer: { files: [replacementFile], dropEffect: 'none' },
+            dataTransfer: { files: selectedNames, dropEffect: 'none' },
             preventDefault() {},
         });
-        assert.deepEqual(input.files, [replacementFile]);
+        assert.deepEqual(input.files, selectedNames);
+        assert.equal(list.children.length, selectedNames.length);
+        selectedNames.forEach((file, index) => {
+            const fileName = list.children[index].children[1].children[0];
+
+            assert.equal(fileName.textContent, file.name);
+            assert.equal(fileName.attributes.get('title'), file.name);
+            for (const className of ['min-w-0', 'flex-1', 'truncate', 'overflow-hidden', 'whitespace-nowrap']) {
+                assert.ok(fileName.className.split(' ').includes(className));
+            }
+        });
         assert.equal(list.children[0].children[0].textContent, 'IMG');
         assert.deepEqual(input.events, ['change', 'change']);
 
@@ -375,7 +391,7 @@ test('drop events populate the real upload input and the remove action clears it
             dataTransfer: { files: [fakeFile('bad.exe', 'application/x-msdownload', 100)], dropEffect: 'none' },
             preventDefault() {},
         });
-        assert.deepEqual(input.files, [replacementFile]);
+        assert.deepEqual(input.files, selectedNames);
         assert.equal(error.hidden, false);
         assert.match(error.textContent, /Type de fichier non autorisé/);
 
@@ -413,7 +429,7 @@ test('drop events populate the real upload input and the remove action clears it
         };
         root.listeners.drop(outsideDropEvent);
         assert.equal(outsideDropEvent.defaultPrevented, true);
-        assert.deepEqual(input.files, [replacementFile]);
+        assert.deepEqual(input.files, selectedNames);
         assert.deepEqual(input.events, ['change', 'change']);
 
         const otherZone = new FakeElement(ownerDocument);
@@ -437,7 +453,7 @@ test('drop events populate the real upload input and the remove action clears it
             preventDefault() {},
         });
         assert.deepEqual(otherInput.files, [otherFile]);
-        assert.deepEqual(input.files, [replacementFile]);
+        assert.deepEqual(input.files, selectedNames);
 
         const removeButton = new FakeButton(ownerDocument);
         removeButton.isRemoveButton = true;
@@ -544,6 +560,10 @@ test('shows upload success only when the server flash status is present', () => 
         assert.equal(status.children[1].textContent, 'Envoyé');
         assert.equal(status.children[2].textContent, 'Fichier envoyé avec succès');
         assert.equal(status.children[3].textContent, 'preuve.pdf');
+        assert.equal(status.children[3].attributes.get('title'), 'preuve.pdf');
+        for (const className of ['min-w-0', 'flex-1', 'truncate', 'overflow-hidden', 'whitespace-nowrap']) {
+            assert.ok(status.children[3].className.split(' ').includes(className));
+        }
         assert.equal(globalThis.sessionStorage.getItem('pending-file-upload-feedback'), null);
     });
 
