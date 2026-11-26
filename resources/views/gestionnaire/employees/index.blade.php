@@ -8,7 +8,7 @@
             <p class="text-sm font-medium text-slate-500">Employés permanents des Prestataires qui vous sont affectés</p>
             <div class="mt-1 flex flex-wrap items-center gap-3">
                 <h2 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Gestion des équipes</h2>
-                <span class="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-800">
+                <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-700">
                     {{ $employeeCount }} {{ $employeeCount === 1 ? 'employé' : 'employés' }}
                 </span>
             </div>
@@ -61,44 +61,58 @@
             </div>
         </form>
 
-        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="space-y-4">
             @if ($employees->isEmpty())
-                <div class="px-6 py-14 text-center">
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-14 text-center shadow-sm">
                     <h3 class="text-lg font-semibold text-slate-900">Aucun employé trouvé</h3>
                     <p class="mt-2 text-sm text-slate-600">Aucun résultat ne correspond à vos filtres.</p>
                 </div>
             @else
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200 text-left">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Employé</th>
-                                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Prestataire / entreprise</th>
-                                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Fonction / CIN</th>
-                                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Statut</th>
-                                <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            @foreach ($employees as $employee)
-                                <tr
-                                    data-navigate-to="{{ route('gestionnaire.employees.show', $employee) }}"
-                                    tabindex="0"
-                                    aria-label="Examiner l’employé {{ trim(($employee->first_name ?? '').' '.($employee->last_name ?? '')) ?: 'Informations à compléter' }}"
-                                    aria-keyshortcuts="Enter Space"
-                                    class="cursor-pointer transition-colors hover:bg-slate-50/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-blue-700"
-                                >
-                                    <td class="whitespace-nowrap px-5 py-4 text-sm font-semibold text-slate-900">{{ trim(($employee->first_name ?? '').' '.($employee->last_name ?? '')) ?: 'Informations à compléter' }}</td>
-                                    <td class="px-5 py-4 text-sm text-slate-700"><span class="block font-medium">{{ $employee->company->prestataire->name }}</span><span class="mt-0.5 block text-xs text-slate-500">{{ $employee->company->name }}</span></td>
-                                    <td class="px-5 py-4 text-sm text-slate-700"><span class="block">{{ $employee->position ?: 'Fonction à compléter' }}</span><span class="mt-0.5 block text-xs text-slate-500">{{ $employee->cin ?: 'CIN à compléter' }}</span></td>
-                                    <td class="whitespace-nowrap px-5 py-4">@include('shared.company-employees.status', ['status' => $employee->status])</td>
-                                    <td class="whitespace-nowrap px-5 py-4 text-right"><a href="{{ route('gestionnaire.employees.show', $employee) }}" class="text-sm font-semibold text-blue-700 hover:text-blue-900">Examiner</a></td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    @foreach ($employees as $employee)
+                        <article
+                            data-navigate-to="{{ route('gestionnaire.employees.show', $employee) }}"
+                            tabindex="0"
+                            aria-label="Examiner l’employé {{ trim(($employee->first_name ?? '').' '.($employee->last_name ?? '')) ?: 'Informations à compléter' }}"
+                            aria-keyshortcuts="Enter Space"
+                            class="group flex min-w-0 cursor-pointer flex-col rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm transition duration-150 hover:border-slate-300 hover:bg-slate-100/70 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#164f43]"
+                        >
+                            <div class="flex min-w-0 items-start justify-between gap-3">
+                                <h3 class="min-w-0 break-words text-base font-semibold leading-6 text-slate-900">
+                                    {{ trim(($employee->first_name ?? '').' '.($employee->last_name ?? '')) ?: 'Informations à compléter' }}
+                                </h3>
+                                <span class="shrink-0">@include('shared.company-employees.status', ['status' => $employee->status])</span>
+                            </div>
+                            <dl class="mt-5 grid min-w-0 gap-x-4 gap-y-4 border-t border-slate-200 pt-4 sm:grid-cols-2">
+                                <div class="min-w-0">
+                                    <dt class="text-xs font-medium text-slate-500">Prestataire</dt>
+                                    <dd class="mt-1 break-words text-sm font-medium text-slate-800">{{ $employee->company->prestataire->name }}</dd>
+                                </div>
+                                <div class="min-w-0">
+                                    <dt class="text-xs font-medium text-slate-500">Entreprise</dt>
+                                    <dd class="mt-1 break-words text-sm text-slate-700">{{ $employee->company->name }}</dd>
+                                </div>
+                                <div class="min-w-0">
+                                    <dt class="text-xs font-medium text-slate-500">Fonction</dt>
+                                    <dd class="mt-1 break-words text-sm text-slate-700">{{ $employee->position ?: 'Fonction à compléter' }}</dd>
+                                </div>
+                                <div class="min-w-0">
+                                    <dt class="text-xs font-medium text-slate-500">CIN</dt>
+                                    <dd class="mt-1 break-words text-sm text-slate-700">{{ $employee->cin ?: 'CIN à compléter' }}</dd>
+                                </div>
+                            </dl>
+                            <div class="mt-auto flex justify-end border-t border-slate-200 pt-4">
+                                <a href="{{ route('gestionnaire.employees.show', $employee) }}" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-[#164f43] transition hover:border-[#c7e4d3] hover:bg-[#d9eee2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#164f43]">
+                                    Examiner
+                                    <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+                                        <path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </a>
+                            </div>
+                        </article>
+                    @endforeach
                 </div>
-                <div class="border-t border-slate-100 px-5 py-4">{{ $employees->links() }}</div>
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 shadow-sm">{{ $employees->links() }}</div>
             @endif
         </div>
     </section>

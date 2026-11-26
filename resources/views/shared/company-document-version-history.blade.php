@@ -1,5 +1,10 @@
 @if ($documents->contains(fn ($document) => $document->versions->isNotEmpty()))
-    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    @php($theme = $theme ?? 'blue')
+    <section @class([
+        'rounded-2xl border bg-white p-5 shadow-sm sm:p-6',
+        'border-[#d9eee2]' => $theme === 'green',
+        'border-slate-200' => $theme !== 'green',
+    ])>
         <h3 class="text-base font-semibold text-slate-900">Historique des versions des documents</h3>
         <div tabindex="0" aria-label="Historique des versions de documents" class="mt-4 max-h-72 space-y-3 overflow-y-auto overscroll-contain pr-2">
             @foreach ($documents->filter(fn ($document) => $document->versions->isNotEmpty()) as $document)
@@ -26,6 +31,7 @@
                                         'downloadUrl' => route($downloadRoute, [$resource, $document, $version]),
                                         'fileName' => $version->file_name,
                                         'showUploadedStatus' => false,
+                                        'theme' => $theme,
                                     ])
                                 @elseif (blank($version->file_path))
                                     <span class="shrink-0 text-xs font-medium text-slate-500">Fichier retiré du stockage</span>

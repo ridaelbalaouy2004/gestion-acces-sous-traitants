@@ -385,9 +385,14 @@ class CompanyListImportTest extends TestCase
             $company,
             $document,
         ]);
-        $preview = $this->get($previewUrl)->assertOk()->viewData('preview');
+        $previewResponse = $this->get($previewUrl)->assertOk();
+        $this->assertSame(
+            $provider->getKey(),
+            $previewResponse->viewData('delegatedPrestataire')->getKey(),
+        );
+        $preview = $previewResponse->viewData('preview');
 
-        $this->post(route('gestionnaire.delegated.companies.documents.import-confirm', [
+        $resultResponse = $this->post(route('gestionnaire.delegated.companies.documents.import-confirm', [
             $provider,
             $company,
             $document,
@@ -397,6 +402,10 @@ class CompanyListImportTest extends TestCase
             'mapping' => $preview['mappings'],
             'selected_rows' => [2],
         ])->assertOk()->assertViewIs('company-list-import.result');
+        $this->assertSame(
+            $provider->getKey(),
+            $resultResponse->viewData('delegatedPrestataire')->getKey(),
+        );
 
         $employee = CompanyEmployee::query()->where('company_id', $company->getKey())->sole();
         $this->assertSame($provider->getKey(), $company->prestataire_id);

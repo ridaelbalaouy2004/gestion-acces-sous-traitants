@@ -38,8 +38,87 @@ class DelegatedDossierController extends Controller
     public function index(Request $request): View
     {
         $manager = $this->primaryManager($request);
-        $prestataires = $manager->accessiblePrestataires()
-            ->withCount('companies')
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+            'status' => [
+                'nullable',
+                Rule::in([
+                    Company::STATUS_DRAFT,
+                    Company::STATUS_PENDING,
+                    Company::STATUS_VALIDATED,
+                    Company::STATUS_REJECTED,
+                ]),
+            ],
+            'date_field' => ['nullable', Rule::in(['created_at', 'submitted_at'])],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+        $dateField = $filters['date_field'] ?? 'created_at';
+        $hasDateFilters = filled($filters['date_from'] ?? null) || filled($filters['date_to'] ?? null);
+        $hasCompanyFilters = filled($filters['status'] ?? null) || $hasDateFilters;
+        $applyCompanyFilters = static function (Builder $query) use ($filters, $dateField): void {
+            if (filled($filters['status'] ?? null)) {
+                $query->where('status', $filters['status']);
+            }
+
+            if (filled($filters['date_from'] ?? null)) {
+                $query->whereDate($dateField, '>=', $filters['date_from']);
+            }
+
+            if (filled($filters['date_to'] ?? null)) {
+                $query->whereDate($dateField, '<=', $filters['date_to']);
+            }
+        };
+        $companyStatusCounts = Company::query()
+            ->whereIn('prestataire_id', $manager->accessiblePrestataires()->select('users.id'))
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+        $companyStats = [
+            'total' => (int) $companyStatusCounts->sum(),
+            'pending' => (int) $companyStatusCounts->get(Company::STATUS_PENDING, 0),
+            'validated' => (int) $companyStatusCounts->get(Company::STATUS_VALIDATED, 0),
+            'rejected' => (int) $companyStatusCounts->get(Company::STATUS_REJECTED, 0),
+        ];
+        $prestatairesQuery = $manager->accessiblePrestataires()
+            ->withCount([
+                'companies',
+                'companies as pending_companies_count' => fn (Builder $query) => $query->where('status', Company::STATUS_PENDING),
+                'companies as validated_companies_count' => fn (Builder $query) => $query->where('status', Company::STATUS_VALIDATED),
+                'companies as rejected_companies_count' => fn (Builder $query) => $query->where('status', Company::STATUS_REJECTED),
+                'companies as draft_companies_count' => fn (Builder $query) => $query->where('status', Company::STATUS_DRAFT),
+            ])
+            ->withMax('companies as latest_company_created_at', 'created_at');
+        $search = trim($filters['search'] ?? '');
+
+        if ($search !== '') {
+            $prestatairesQuery->where(function (Builder $query) use (
+                $search,
+                $hasCompanyFilters,
+                $applyCompanyFilters,
+            ): void {
+                $query
+                    ->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('email', 'like', '%'.$search.'%')
+                    ->orWhereHas('companies', function (Builder $companyQuery) use (
+                        $search,
+                        $hasCompanyFilters,
+                        $applyCompanyFilters,
+                    ): void {
+                        $companyQuery->where('name', 'like', '%'.$search.'%');
+
+                        if ($hasCompanyFilters) {
+                            $applyCompanyFilters($companyQuery);
+                        }
+                    });
+            });
+        }
+
+        if ($hasCompanyFilters) {
+            $prestatairesQuery->whereHas('companies', $applyCompanyFilters);
+        }
+
+        $prestataires = $prestatairesQuery
             ->orderBy('name')
             ->orderBy('id')
             ->paginate(15, ['id', 'name', 'email'])
@@ -47,6 +126,9 @@ class DelegatedDossierController extends Controller
 
         return view('gestionnaire.delegated.index', $this->managerViewData([
             'prestataires' => $prestataires,
+            'companyStats' => $companyStats,
+            'filters' => $filters,
+            'hasActiveFilters' => $search !== '' || $hasCompanyFilters,
         ]));
     }
 
@@ -155,6 +237,7 @@ class DelegatedDossierController extends Controller
             'formAction' => route('gestionnaire.delegated.companies.update', [$prestataire, $company]),
             'formCancelUrl' => route('gestionnaire.delegated.companies.show', [$prestataire, $company]),
             'delegatedPrestataire' => $prestataire,
+            'contextCompany' => $company,
         ]));
     }
 
@@ -227,14 +310,18 @@ class DelegatedDossierController extends Controller
         $prestataire = $this->accessiblePrestataire($request, $prestataire);
         $companies = $prestataire->companies()->orderBy('name')->get(['id', 'name']);
         abort_if($companies->isEmpty(), 403, 'Créez d’abord une entreprise avant d’ajouter un employé.');
+        $selectedCompany = $this->requestedCompany($request, $prestataire);
 
         return view('prestataire.employees.form', $this->managerViewData([
             'employee' => null,
             'companies' => $companies,
             'pageTitle' => 'Ajouter un employé pour '.$prestataire->name,
             'formAction' => route('gestionnaire.delegated.employees.store', $prestataire),
-            'formCancelUrl' => route('gestionnaire.delegated.show', $prestataire),
+            'formCancelUrl' => $selectedCompany
+                ? $this->companyDetailsUrl($prestataire, $selectedCompany)
+                : route('gestionnaire.delegated.show', $prestataire),
             'delegatedPrestataire' => $prestataire,
+            'contextCompany' => $selectedCompany,
         ]));
     }
 
@@ -252,6 +339,7 @@ class DelegatedDossierController extends Controller
             'formCancelUrl' => $this->companyDetailsUrl($prestataire, $employee),
             'photoUrl' => route('gestionnaire.employees.photo', $employee),
             'delegatedPrestataire' => $prestataire,
+            'contextCompany' => $employee->company,
         ]));
     }
 
@@ -375,14 +463,18 @@ class DelegatedDossierController extends Controller
         $prestataire = $this->accessiblePrestataire($request, $prestataire);
         $companies = $prestataire->companies()->orderBy('name')->get(['id', 'name']);
         abort_if($companies->isEmpty(), 403, 'Créez d’abord une entreprise avant d’ajouter un engin.');
+        $selectedCompany = $this->requestedCompany($request, $prestataire);
 
         return view('prestataire.machinery.form', $this->managerViewData([
             'machinery' => null,
             'companies' => $companies,
             'pageTitle' => 'Ajouter un engin pour '.$prestataire->name,
             'formAction' => route('gestionnaire.delegated.machinery.store', $prestataire),
-            'formCancelUrl' => route('gestionnaire.delegated.show', $prestataire),
+            'formCancelUrl' => $selectedCompany
+                ? $this->companyDetailsUrl($prestataire, $selectedCompany)
+                : route('gestionnaire.delegated.show', $prestataire),
             'delegatedPrestataire' => $prestataire,
+            'contextCompany' => $selectedCompany,
         ]));
     }
 
@@ -400,6 +492,7 @@ class DelegatedDossierController extends Controller
             'formCancelUrl' => $this->companyDetailsUrl($prestataire, $machinery),
             'photoUrl' => route('gestionnaire.machinery.photo', $machinery),
             'delegatedPrestataire' => $prestataire,
+            'contextCompany' => $machinery->company,
         ]));
     }
 
@@ -516,14 +609,18 @@ class DelegatedDossierController extends Controller
         $prestataire = $this->accessiblePrestataire($request, $prestataire);
         $companies = $prestataire->companies()->orderBy('name')->get(['id', 'name']);
         abort_if($companies->isEmpty(), 403, 'Créez d’abord une entreprise avant d’ajouter un outillage.');
+        $selectedCompany = $this->requestedCompany($request, $prestataire);
 
         return view('prestataire.toolings.form', $this->managerViewData([
             'tooling' => null,
             'companies' => $companies,
             'pageTitle' => 'Ajouter un outillage pour '.$prestataire->name,
             'formAction' => route('gestionnaire.delegated.toolings.store', $prestataire),
-            'formCancelUrl' => route('gestionnaire.delegated.show', $prestataire),
+            'formCancelUrl' => $selectedCompany
+                ? $this->companyDetailsUrl($prestataire, $selectedCompany)
+                : route('gestionnaire.delegated.show', $prestataire),
             'delegatedPrestataire' => $prestataire,
+            'contextCompany' => $selectedCompany,
         ]));
     }
 
@@ -541,6 +638,7 @@ class DelegatedDossierController extends Controller
             'formCancelUrl' => $this->companyDetailsUrl($prestataire, $tooling),
             'photoUrl' => route('gestionnaire.toolings.photo', $tooling),
             'delegatedPrestataire' => $prestataire,
+            'contextCompany' => $tooling->company,
         ]));
     }
 
@@ -1567,5 +1665,21 @@ class DelegatedDossierController extends Controller
             : $record->getAttribute('company_id');
 
         return route('gestionnaire.delegated.companies.show', [$prestataire, $companyId]);
+    }
+
+    private function requestedCompany(Request $request, User $prestataire): ?Company
+    {
+        $companyId = $request->query('company_id');
+
+        if ($companyId === null) {
+            return null;
+        }
+
+        abort_unless(
+            is_scalar($companyId) && filter_var($companyId, FILTER_VALIDATE_INT) !== false,
+            404,
+        );
+
+        return $prestataire->companies()->findOrFail((int) $companyId);
     }
 }

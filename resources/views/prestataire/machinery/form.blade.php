@@ -3,18 +3,23 @@
 @section('pageTitle', $pageTitle)
 
 @section('content')
-    <section class="mx-auto max-w-4xl space-y-6">
-        <div>
+    <div class="mx-auto {{ isset($delegatedPrestataire) ? 'max-w-5xl' : 'max-w-4xl' }} space-y-6">
+        @if (isset($delegatedPrestataire))
+            @include('gestionnaire.delegated._context', [
+                'prestataire' => $delegatedPrestataire,
+                'company' => $contextCompany ?? null,
+                'currentLabel' => $pageTitle,
+                'backUrl' => $formCancelUrl,
+                'backLabel' => 'Retour au dossier',
+            ])
+        @else
+            <div>
             <a href="{{ $formCancelUrl ?? ($machinery ? route('prestataire.machinery.show', $machinery) : route('prestataire.machinery.index')) }}" class="text-sm font-semibold text-blue-700 hover:text-blue-900">← Retour</a>
             <h2 class="mt-4 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $pageTitle }}</h2>
-            @if (isset($delegatedPrestataire))
-                <p class="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                    Vous effectuez ces opérations pour le compte de : <span class="font-semibold">{{ $delegatedPrestataire->name }}</span>
-                </p>
-            @endif
-        </div>
+            </div>
+        @endif
 
-        <form method="POST" enctype="multipart/form-data" action="{{ $formAction ?? ($machinery ? route('prestataire.machinery.update', $machinery) : route('prestataire.machinery.store')) }}" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <form method="POST" enctype="multipart/form-data" action="{{ $formAction ?? ($machinery ? route('prestataire.machinery.update', $machinery) : route('prestataire.machinery.store')) }}" class="space-y-6 {{ isset($delegatedPrestataire) ? 'rounded-3xl' : 'rounded-2xl' }} border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
             @csrf
             @if ($machinery)
                 @method('PUT')
@@ -27,7 +32,7 @@
                     <select id="company_id" name="company_id" required class="form-control min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900">
                         <option value="">Sélectionner une entreprise</option>
                         @foreach ($companies as $company)
-                            <option value="{{ $company->id }}" @selected((string) old('company_id') === (string) $company->id)>{{ $company->name }}</option>
+                            <option value="{{ $company->id }}" @selected((string) old('company_id', $contextCompany->id ?? null) === (string) $company->id)>{{ $company->name }}</option>
                         @endforeach
                     </select>
                     @error('company_id')<p class="mt-1.5 text-sm text-red-700">{{ $message }}</p>@enderror
@@ -105,8 +110,12 @@
             </div>
             <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <a href="{{ $formCancelUrl ?? ($machinery ? route('prestataire.machinery.show', $machinery) : route('prestataire.machinery.index')) }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuler</a>
-                <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 text-sm font-semibold text-white hover:bg-blue-800">Enregistrer</button>
+                <button type="submit" @class([
+                    'inline-flex min-h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                    'bg-[#164f43] hover:bg-[#123e36] focus-visible:outline-[#164f43]' => isset($delegatedPrestataire),
+                    'bg-blue-700 hover:bg-blue-800 focus-visible:outline-blue-700' => ! isset($delegatedPrestataire),
+                ])>Enregistrer</button>
             </div>
         </form>
-    </section>
+    </div>
 @endsection

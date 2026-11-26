@@ -3,7 +3,17 @@
 @section('pageTitle', 'Résultat de l’importation')
 
 @section('content')
+    @php($isDelegated = isset($delegatedPrestataire))
     <div class="mx-auto grid max-w-4xl gap-6">
+        @if ($isDelegated)
+            @include('gestionnaire.delegated._context', [
+                'prestataire' => $delegatedPrestataire,
+                'company' => $company,
+                'currentLabel' => 'Résultat de l’importation',
+                'backUrl' => $cancelUrl,
+                'backLabel' => 'Retour au dossier',
+            ])
+        @endif
         <section class="rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm">
             <div class="flex items-start gap-4">
                 <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700" aria-hidden="true">
@@ -15,7 +25,8 @@
                     <p class="text-sm font-semibold text-emerald-800">Importation confirmée</p>
                     <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900">Résultat de l’importation</h1>
                     <p class="mt-2 text-sm text-slate-600">
-                        {{ $summary['created_label'] }} dans {{ $summary['destination'] }} depuis « {{ $summary['source_file'] }} ».
+                        {{ $summary['created_label'] }} dans {{ $summary['destination'] }} depuis
+                        <span class="inline-block max-w-full truncate align-bottom" title="{{ $summary['source_file'] }}">« {{ $summary['source_file'] }} »</span>.
                     </p>
                 </div>
             </div>
@@ -66,7 +77,11 @@
         @endif
 
         <div class="flex flex-wrap gap-3">
-            <a href="{{ $cancelUrl }}" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700">Retour au dossier</a>
+            <a href="{{ $cancelUrl }}" @class([
+                'inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                'bg-[#164f43] hover:bg-[#123e36] focus-visible:outline-[#164f43]' => $isDelegated,
+                'bg-slate-900 hover:bg-slate-700 focus-visible:outline-slate-700' => ! $isDelegated,
+            ])>Retour au dossier</a>
         </div>
     </div>
 @endsection

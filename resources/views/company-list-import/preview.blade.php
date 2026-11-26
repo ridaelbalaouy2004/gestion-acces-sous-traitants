@@ -4,6 +4,7 @@
 
 @section('content')
     @php
+        $isDelegated = isset($delegatedPrestataire);
         $selectedRowStrings = is_array($selectedRows)
             ? array_map('strval', $selectedRows)
             : collect($preview['rows'])
@@ -19,13 +20,26 @@
     @endphp
 
     <div class="mx-auto grid max-w-7xl gap-6">
+        @if ($isDelegated)
+            @include('gestionnaire.delegated._context', [
+                'prestataire' => $delegatedPrestataire,
+                'company' => $company,
+                'currentLabel' => 'Aperçu de l’importation',
+                'backUrl' => $cancelUrl,
+                'backLabel' => 'Retour au dossier',
+            ])
+        @endif
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <p class="text-sm font-medium text-slate-500">{{ $company->name }}</p>
                 <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900">Aperçu de l’importation</h1>
                 <p class="mt-2 text-sm text-slate-600">Le fichier ne crée aucun enregistrement tant que vous n’avez pas confirmé l’importation.</p>
             </div>
-            <a href="{{ $cancelUrl }}" class="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuler</a>
+            <a href="{{ $cancelUrl }}" @class([
+                'inline-flex min-h-10 items-center justify-center rounded-xl border px-4 py-2 text-sm font-semibold transition',
+                'border-[#c7e4d3] bg-white text-[#164f43] hover:bg-[#d9eee2]' => $isDelegated,
+                'border-slate-300 text-slate-700 hover:bg-slate-50' => ! $isDelegated,
+            ])>Annuler</a>
         </div>
 
         @if ($errors->any())
@@ -136,7 +150,11 @@
                             type="submit"
                             name="action"
                             value="refresh"
-                            class="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                            @class([
+                                'inline-flex min-h-10 items-center justify-center rounded-xl border px-4 py-2 text-sm font-semibold transition',
+                                'border-[#c7e4d3] bg-white text-[#164f43] hover:bg-[#d9eee2]' => $isDelegated,
+                                'border-slate-300 text-slate-700 hover:bg-slate-50' => ! $isDelegated,
+                            ])
                         >
                             Actualiser l’aperçu
                         </button>
@@ -163,7 +181,11 @@
                                                     name="selected_rows[]"
                                                     value="{{ $row['excel_row'] }}"
                                                     @checked(in_array((string) $row['excel_row'], $selectedRowStrings, true))
-                                                    class="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-700"
+                                                    @class([
+                                                        'h-4 w-4 rounded border-slate-300 focus:ring-2',
+                                                        'text-[#164f43] focus:ring-[#164f43]' => $isDelegated,
+                                                        'text-blue-700 focus:ring-blue-700' => ! $isDelegated,
+                                                    ])
                                                     aria-label="Importer la ligne Excel {{ $row['excel_row'] }}"
                                                 >
                                             @else
@@ -201,7 +223,11 @@
                             name="action"
                             value="import"
                             @disabled($preview['valid_rows'] === 0 || $preview['mapping_errors'] !== [])
-                            class="inline-flex min-h-10 items-center justify-center rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                            @class([
+                                'inline-flex min-h-10 items-center justify-center rounded-xl px-5 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600',
+                                'bg-[#164f43] hover:bg-[#123e36]' => $isDelegated,
+                                'bg-blue-700 hover:bg-blue-800' => ! $isDelegated,
+                            ])
                         >
                             Confirmer et importer les lignes sélectionnées
                         </button>

@@ -2,6 +2,7 @@
 @php($showUploadedStatus = $showUploadedStatus ?? true)
 @php($excelDataUrl = $excelDataUrl ?? null)
 @php($excelDataTitle = $excelDataTitle ?? 'Données Excel importées')
+@php($theme = $theme ?? 'blue')
 
 <div class="flex flex-wrap items-center gap-2">
     @if ($showUploadedStatus && $downloadUrl)
@@ -21,7 +22,7 @@
             href="{{ $previewUrl }}"
             target="_blank"
             rel="noopener"
-            class="inline-flex min-h-9 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+            class="{{ $theme === 'green' ? 'inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#c7e4d3] bg-[#f5faf6] px-3 py-1.5 text-xs font-semibold text-[#164f43] transition hover:bg-[#d9eee2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#164f43]' : 'inline-flex min-h-9 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700' }}"
         >
             <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
                 <path d="M2.5 12s3.3-6 9.5-6 9.5 6 9.5 6-3.3 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>

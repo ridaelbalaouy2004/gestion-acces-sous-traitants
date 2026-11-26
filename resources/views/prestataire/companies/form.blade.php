@@ -3,11 +3,29 @@
 @section('pageTitle', isset($company) && $company->exists ? 'Modifier l’entreprise' : 'Ajouter une entreprise')
 
 @section('content')
-    <div class="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+    <div @class([
+        'mx-auto space-y-6' => isset($delegatedPrestataire),
+        'mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7' => ! isset($delegatedPrestataire),
+    ])>
         @if (isset($delegatedPrestataire))
-            <p class="mb-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                Vous effectuez ces opérations pour le compte de : <span class="font-semibold">{{ $delegatedPrestataire->name }}</span>
-            </p>
+            @include('gestionnaire.delegated._context', [
+                'prestataire' => $delegatedPrestataire,
+                'company' => $contextCompany ?? null,
+                'currentLabel' => isset($company) && $company->exists ? 'Modifier l’entreprise' : 'Ajouter une entreprise',
+                'backUrl' => $formCancelUrl,
+                'backLabel' => 'Retour au dossier',
+            ])
+            <header class="rounded-3xl border border-[#d9eee2] bg-[#fffefa] p-5 shadow-sm sm:p-7">
+                <p class="text-sm font-semibold uppercase tracking-wide text-[#164f43]">Dossier délégué</p>
+                <h1 class="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+                    {{ isset($company) && $company->exists ? 'Modifier l’entreprise' : 'Ajouter une entreprise' }}
+                </h1>
+                <p class="mt-2 text-sm leading-6 text-slate-600">Les modifications sont enregistrées dans le dossier du Prestataire affiché ci-dessus.</p>
+            </header>
+        @endif
+
+        @if (isset($delegatedPrestataire))
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         @endif
         <form method="POST" action="{{ $formAction ?? (isset($company) && $company->exists ? route('prestataire.companies.update', $company) : route('prestataire.companies.store')) }}" enctype="multipart/form-data">
             @csrf
@@ -54,11 +72,18 @@
             </div>
 
             <div class="mt-6 flex flex-wrap justify-end gap-3">
-                <a href="{{ $formCancelUrl ?? route('prestataire.companies.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuler</a>
-                <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800">
+                <a href="{{ $formCancelUrl ?? route('prestataire.companies.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Annuler</a>
+                <button type="submit" @class([
+                    'inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                    'bg-[#164f43] hover:bg-[#123e36] focus-visible:outline-[#164f43]' => isset($delegatedPrestataire),
+                    'bg-blue-700 hover:bg-blue-800 focus-visible:outline-blue-700' => ! isset($delegatedPrestataire),
+                ])>
                     {{ isset($company) && $company->exists ? 'Enregistrer les modifications' : 'Créer l’entreprise' }}
                 </button>
             </div>
         </form>
+        @if (isset($delegatedPrestataire))
+            </div>
+        @endif
     </div>
 @endsection

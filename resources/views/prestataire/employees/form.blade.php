@@ -3,19 +3,25 @@
 @section('pageTitle', $pageTitle)
 
 @section('content')
-    <div class="mb-7">
-        <a href="{{ $formCancelUrl ?? ($employee ? route('prestataire.employees.show', $employee) : route('prestataire.employees.index')) }}" class="text-sm font-semibold text-blue-700 hover:text-blue-900">← Retour à mon équipe</a>
-        <p class="mt-5 text-sm font-medium text-slate-500">Employés permanents</p>
-        <h2 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $pageTitle }}</h2>
+    <div @class(['mx-auto max-w-5xl space-y-6' => isset($delegatedPrestataire)])>
         @if (isset($delegatedPrestataire))
-            <p class="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                Vous effectuez ces opérations pour le compte de : <span class="font-semibold">{{ $delegatedPrestataire->name }}</span>
-            </p>
+            @include('gestionnaire.delegated._context', [
+                'prestataire' => $delegatedPrestataire,
+                'company' => $contextCompany ?? null,
+                'currentLabel' => $pageTitle,
+                'backUrl' => $formCancelUrl,
+                'backLabel' => 'Retour au dossier',
+            ])
+        @else
+            <div class="mb-7">
+                <a href="{{ $formCancelUrl ?? ($employee ? route('prestataire.employees.show', $employee) : route('prestataire.employees.index')) }}" class="text-sm font-semibold text-blue-700 hover:text-blue-900">← Retour à mon équipe</a>
+                <p class="mt-5 text-sm font-medium text-slate-500">Employés permanents</p>
+                <h2 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $pageTitle }}</h2>
+            </div>
         @endif
-    </div>
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <form method="POST" enctype="multipart/form-data" action="{{ $formAction ?? ($employee ? route('prestataire.employees.update', $employee) : route('prestataire.employees.store')) }}" class="space-y-6">
+        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <form method="POST" enctype="multipart/form-data" action="{{ $formAction ?? ($employee ? route('prestataire.employees.update', $employee) : route('prestataire.employees.store')) }}" class="space-y-6">
             @csrf
             @if ($employee)
                 @method('PUT')
@@ -25,7 +31,7 @@
                     <select id="company_id" name="company_id" required class="form-control min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-900">
                         <option value="">Sélectionner une entreprise</option>
                         @foreach ($companies as $company)
-                            <option value="{{ $company->id }}" @selected((string) old('company_id') === (string) $company->id)>{{ $company->name }}</option>
+                            <option value="{{ $company->id }}" @selected((string) old('company_id', $contextCompany->id ?? null) === (string) $company->id)>{{ $company->name }}</option>
                         @endforeach
                     </select>
                     @error('company_id')<p class="mt-1.5 text-sm text-red-700">{{ $message }}</p>@enderror
@@ -89,12 +95,21 @@
                 @endif
             </div>
 
-            <p class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">Les informations peuvent être complétées ensuite. Le prénom, le nom, la CIN, la fonction et les documents CIN, CNSS et aptitude physique seront exigés avant la soumission.</p>
+            <p @class([
+                'rounded-xl border px-4 py-3 text-sm leading-6',
+                'border-[#c7e4d3] bg-[#f5faf6] text-[#123e36]' => isset($delegatedPrestataire),
+                'border-blue-100 bg-blue-50 text-blue-900' => ! isset($delegatedPrestataire),
+            ])>Les informations peuvent être complétées ensuite. Le prénom, le nom, la CIN, la fonction et les documents CIN, CNSS et aptitude physique seront exigés avant la soumission.</p>
 
             <div class="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
-                <a href="{{ $formCancelUrl ?? ($employee ? route('prestataire.employees.show', $employee) : route('prestataire.employees.index')) }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuler</a>
-                <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800">{{ $employee ? 'Enregistrer les modifications' : 'Créer la fiche' }}</button>
+                <a href="{{ $formCancelUrl ?? ($employee ? route('prestataire.employees.show', $employee) : route('prestataire.employees.index')) }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Annuler</a>
+                <button type="submit" @class([
+                    'inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                    'bg-[#164f43] hover:bg-[#123e36] focus-visible:outline-[#164f43]' => isset($delegatedPrestataire),
+                    'bg-blue-700 hover:bg-blue-800 focus-visible:outline-blue-700' => ! isset($delegatedPrestataire),
+                ])>{{ $employee ? 'Enregistrer les modifications' : 'Créer la fiche' }}</button>
             </div>
-        </form>
-    </section>
+            </form>
+        </section>
+    </div>
 @endsection

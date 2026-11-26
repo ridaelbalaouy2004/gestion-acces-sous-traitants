@@ -59,10 +59,16 @@ class DelegatedDossierManagementTest extends TestCase
 
         $this->get(route('gestionnaire.delegated.companies.show', [$prestataire, $company]))
             ->assertOk()
-            ->assertSee('Détails de '.$company->name)
+            ->assertSee('Dossier entreprise')
+            ->assertSee($company->name)
             ->assertSee('Vous effectuez ces opérations pour le compte de')
             ->assertSee('Prestataire délégué')
+            ->assertDontSee('Entreprise : '.$company->name)
             ->assertSee('Documents entreprise (0/9)')
+            ->assertSee('aria-label="Documents : 0 sur 9 requis"', false)
+            ->assertSee('aria-label="Employés : 0"', false)
+            ->assertSee('aria-label="Engins et machines : 0"', false)
+            ->assertSee('aria-label="Outillages : 0"', false)
             ->assertSee('Employés')
             ->assertSee('Engins et machines')
             ->assertSee('Outillages')
@@ -76,6 +82,138 @@ class DelegatedDossierManagementTest extends TestCase
         $this->get(route('gestionnaire.delegated.employees.create', $prestataire))->assertOk();
         $this->get(route('gestionnaire.delegated.machinery.create', $prestataire))->assertOk();
         $this->get(route('gestionnaire.delegated.toolings.create', $prestataire))->assertOk();
+    }
+
+    public function test_delegated_create_and_edit_forms_preserve_provider_and_company_context(): void
+    {
+        $manager = $this->primaryManager();
+        $prestataire = $this->userWithRole('prestataire', ['name' => 'Prestataire formulaire']);
+        $company = $this->company($prestataire, 'Entreprise formulaire');
+        $employee = $company->employees()->create([
+            'first_name' => 'Samira',
+            'last_name' => 'Employée',
+            'status' => CompanyEmployee::STATUS_DRAFT,
+        ]);
+        $machinery = $company->machinery()->create([
+            'designation' => 'Chariot élévateur',
+            'category' => 'Manutention',
+            'status' => CompanyMachinery::STATUS_DRAFT,
+        ]);
+        $tooling = $company->toolings()->create([
+            'designation' => 'Clé dynamométrique',
+            'category' => 'Mesure',
+            'quantity' => 1,
+            'status' => CompanyTooling::STATUS_DRAFT,
+        ]);
+        $otherPrestataire = $this->userWithRole('prestataire');
+        $otherCompany = $this->company($otherPrestataire, 'Entreprise hors contexte');
+
+        $this->actingAs($manager);
+        $companyDetailsUrl = route('gestionnaire.delegated.companies.show', [$prestataire, $company]);
+
+        $this->get(route('gestionnaire.delegated.companies.edit', [$prestataire, $company]))
+            ->assertOk()
+            ->assertSee($prestataire->name)
+            ->assertSee($company->name)
+            ->assertSee('Modifier l’entreprise');
+
+        foreach ([
+            ['gestionnaire.delegated.employees.create', 'Ajouter un employé'],
+            ['gestionnaire.delegated.machinery.create', 'Ajouter un engin'],
+            ['gestionnaire.delegated.toolings.create', 'Ajouter un outillage'],
+        ] as [$routeName, $pageTitle]) {
+            $this->get(route($routeName, ['prestataire' => $prestataire, 'company_id' => $company->getKey()]))
+                ->assertOk()
+                ->assertSee($prestataire->name)
+                ->assertSee($company->name)
+                ->assertSee($pageTitle)
+                ->assertSee('href="'.$companyDetailsUrl.'"', false)
+                ->assertSee('value="'.$company->getKey().'" selected', false);
+        }
+
+        foreach ([
+            ['gestionnaire.delegated.employees.edit', $employee, 'Modifier la fiche employé'],
+            ['gestionnaire.delegated.machinery.edit', $machinery, 'Modifier l’engin'],
+            ['gestionnaire.delegated.toolings.edit', $tooling, 'Modifier l’outillage'],
+        ] as [$routeName, $record, $pageTitle]) {
+            $this->get(route($routeName, [$prestataire, $record]))
+                ->assertOk()
+                ->assertSee($prestataire->name)
+                ->assertSee($company->name)
+                ->assertSee($pageTitle)
+                ->assertSee('href="'.$companyDetailsUrl.'"', false);
+        }
+
+        $this->get(route('gestionnaire.delegated.employees.create', [
+            'prestataire' => $prestataire,
+            'company_id' => $otherCompany->getKey(),
+        ]))->assertNotFound();
+    }
+
+    public function test_delegated_index_shows_real_company_stats_and_filters_by_provider_company_status_and_submission_date(): void
+    {
+        $this->travelTo('2026-03-15 12:00:00');
+        $manager = $this->primaryManager();
+        $pendingProvider = $this->userWithRole('prestataire', [
+            'name' => 'Prestataire Recherche Alpha',
+            'email' => 'alpha@example.test',
+        ]);
+        $validatedProvider = $this->userWithRole('prestataire', [
+            'name' => 'Prestataire Recherche Beta',
+            'email' => 'beta@example.test',
+        ]);
+        $pendingCompany = $this->company($pendingProvider, 'Entreprise Alpha');
+        $pendingCompany->update([
+            'status' => Company::STATUS_PENDING,
+            'submitted_at' => '2026-02-10 09:00:00',
+        ]);
+        Company::query()->whereKey($pendingCompany->getKey())->update([
+            'created_at' => '2026-01-10 09:00:00',
+        ]);
+        $validatedCompany = $this->company($validatedProvider, 'Entreprise Beta');
+        $validatedCompany->update([
+            'status' => Company::STATUS_VALIDATED,
+            'submitted_at' => '2026-03-10 09:00:00',
+        ]);
+        Company::query()->whereKey($validatedCompany->getKey())->update([
+            'created_at' => '2026-03-01 09:00:00',
+        ]);
+
+        $this->actingAs($manager)
+            ->get(route('gestionnaire.delegated.index'))
+            ->assertOk()
+            ->assertViewHas('companyStats', [
+                'total' => 2,
+                'pending' => 1,
+                'validated' => 1,
+                'rejected' => 0,
+            ])
+            ->assertSee('Prestataire Recherche Alpha')
+            ->assertSee('Prestataire Recherche Beta');
+
+        $this->get(route('gestionnaire.delegated.index', ['search' => 'Entreprise Alpha']))
+            ->assertOk()
+            ->assertSee('Prestataire Recherche Alpha')
+            ->assertDontSee('Prestataire Recherche Beta');
+
+        $this->get(route('gestionnaire.delegated.index', ['status' => Company::STATUS_VALIDATED]))
+            ->assertOk()
+            ->assertSee('Prestataire Recherche Beta')
+            ->assertDontSee('Prestataire Recherche Alpha');
+
+        $this->get(route('gestionnaire.delegated.index', [
+            'date_field' => 'submitted_at',
+            'date_from' => '2026-03-10',
+            'date_to' => '2026-03-10',
+        ]))
+            ->assertOk()
+            ->assertSee('Prestataire Recherche Beta')
+            ->assertDontSee('Prestataire Recherche Alpha');
+
+        $this->get(route('gestionnaire.delegated.index', ['search' => 'Aucun résultat']))
+            ->assertOk()
+            ->assertSee('Aucun dossier ne correspond à ces filtres')
+            ->assertSee('Effacer les filtres');
     }
 
     public function test_only_the_primary_manager_can_access_the_delegated_workspace(): void
@@ -222,10 +360,8 @@ class DelegatedDossierManagementTest extends TestCase
             ->assertDontSee('Employée Détail')
             ->assertDontSee('Machine détail')
             ->assertDontSee('Outillage détail');
-        preg_match_all('/<details name="delegated-companies"[^>]*>/', $companyListResponse->getContent(), $companyAccordions);
-        $this->assertCount(2, $companyAccordions[0]);
-        $this->assertSame(0, preg_match('/<details name="delegated-companies"[^>]*\bopen(?:=|\s|>)/', $companyListResponse->getContent()));
-        $this->assertMatchesRegularExpression('/<h3[^>]*>Entreprises<\/h3>\s*<span[^>]*>2<\/span>/', $companyListResponse->getContent());
+        $this->assertSame(2, substr_count($companyListResponse->getContent(), 'Consulter le dossier'));
+        $companyListResponse->assertSee('aria-label="2 entreprises"', false);
 
         $detailResponse = $this->get(route('gestionnaire.delegated.companies.show', [$prestataire, $company]))
             ->assertOk()
@@ -944,14 +1080,14 @@ class DelegatedDossierManagementTest extends TestCase
         $missingCompany->update(['status' => Company::STATUS_PENDING]);
         $this->prepareRequiredCompanyDocuments($missingCompany, missingType: $requiredTypes[0]);
 
-        $this->actingAs($manager)
+        $approvalResponse = $this->actingAs($manager)
             ->get(route('gestionnaire.delegated.companies.show', [$prestataire, $completeCompany]))
             ->assertOk()
-            ->assertSee(
-                '<button type="submit" class="inline-flex min-h-9 items-center justify-center rounded-lg bg-emerald-700',
-                false,
-            )
             ->assertSee('Valider l’entreprise');
+        $this->assertMatchesRegularExpression(
+            '/<button type="submit" class="[^"]+">Valider l’entreprise<\/button>/',
+            $approvalResponse->getContent(),
+        );
 
         $this->get(route('gestionnaire.delegated.companies.show', [$prestataire, $pendingCompany]))
             ->assertOk()
@@ -1012,13 +1148,13 @@ class DelegatedDossierManagementTest extends TestCase
             $this->assertSame(CompanyDocument::STATUS_VALIDATED, $document->fresh()->status);
         }
 
-        $this->get(route('gestionnaire.delegated.companies.show', [$prestataire, $company]))
+        $approvalResponse = $this->get(route('gestionnaire.delegated.companies.show', [$prestataire, $company]))
             ->assertOk()
-            ->assertSee(
-                '<button type="submit" class="inline-flex min-h-9 items-center justify-center rounded-lg bg-emerald-700',
-                false,
-            )
             ->assertSee('Valider l’entreprise');
+        $this->assertMatchesRegularExpression(
+            '/<button type="submit" class="[^"]+">Valider l’entreprise<\/button>/',
+            $approvalResponse->getContent(),
+        );
 
         $this->post(route('gestionnaire.delegated.companies.approve', [$prestataire, $company]))
             ->assertRedirect(route('gestionnaire.delegated.companies.show', [$prestataire, $company]));
@@ -1263,6 +1399,7 @@ class DelegatedDossierManagementTest extends TestCase
             ->assertSee(route('gestionnaire.machinery.documents.download', [$machinery, $machineryDocument]), false)
             ->assertSee(route('gestionnaire.toolings.documents.preview', [$tooling, $toolingDocument]), false)
             ->assertSee(route('gestionnaire.toolings.documents.download', [$tooling, $toolingDocument]), false)
+            ->assertSee('Historique des versions des documents')
             ->assertSee('Date d’émission')
             ->assertSee('Ajouter un autre document');
 

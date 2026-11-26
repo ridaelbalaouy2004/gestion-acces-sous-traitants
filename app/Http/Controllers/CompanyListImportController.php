@@ -63,6 +63,7 @@ class CompanyListImportController extends Controller
             $importService,
             route('gestionnaire.delegated.companies.documents.import-confirm', [$prestataire, $company, $document]),
             route('gestionnaire.delegated.companies.show', [$prestataire, $company]),
+            $prestataire,
         );
     }
 
@@ -89,7 +90,7 @@ class CompanyListImportController extends Controller
         $company = $prestataire->companies()->whereKey($company->getKey())->firstOrFail();
         $document = $company->documents()->findOrFail($document->getKey());
 
-        return $this->confirm($request, $company, $document, $importService);
+        return $this->confirm($request, $company, $document, $importService, $prestataire);
     }
 
     private function providerCompany(Request $request, Company $company): Company
@@ -119,6 +120,7 @@ class CompanyListImportController extends Controller
         CompanyListImportService $importService,
         string $confirmUrl,
         string $cancelUrl,
+        ?User $delegatedPrestataire = null,
     ): View {
         $mapping = $request->session()->getOldInput('mapping');
         $preview = $importService->preview($company, $document, is_array($mapping) ? $mapping : null);
@@ -130,6 +132,7 @@ class CompanyListImportController extends Controller
             'confirmUrl' => $confirmUrl,
             'cancelUrl' => $cancelUrl,
             'selectedRows' => $request->session()->getOldInput('selected_rows'),
+            'delegatedPrestataire' => $delegatedPrestataire,
         ]));
     }
 
@@ -138,6 +141,7 @@ class CompanyListImportController extends Controller
         Company $company,
         CompanyDocument $document,
         CompanyListImportService $importService,
+        ?User $delegatedPrestataire = null,
     ): View {
         $validated = $request->validate([
             'action' => ['required', Rule::in(['refresh', 'import'])],
@@ -158,6 +162,7 @@ class CompanyListImportController extends Controller
                 'confirmUrl' => $request->url(),
                 'cancelUrl' => $this->cancelUrl($request, $company),
                 'selectedRows' => $validated['selected_rows'] ?? [],
+                'delegatedPrestataire' => $delegatedPrestataire,
             ]));
         }
 
@@ -178,6 +183,7 @@ class CompanyListImportController extends Controller
             'document' => $document,
             'summary' => $summary,
             'cancelUrl' => $this->cancelUrl($request, $company),
+            'delegatedPrestataire' => $delegatedPrestataire,
         ]));
     }
 

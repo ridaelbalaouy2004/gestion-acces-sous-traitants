@@ -5,6 +5,28 @@
         'machinery' => 'gestionnaire.machinery.documents.preview',
         'tooling' => 'gestionnaire.toolings.documents.preview',
     };
+    $versionHistory = match ($kind) {
+        'company' => [
+            'previewRoute' => 'gestionnaire.companies.documents.versions.preview',
+            'downloadRoute' => 'gestionnaire.companies.documents.versions.download',
+            'permission' => 'entreprises.download',
+        ],
+        'employee' => [
+            'previewRoute' => 'gestionnaire.employees.documents.versions.preview',
+            'downloadRoute' => 'gestionnaire.employees.documents.versions.download',
+            'permission' => 'employees.download',
+        ],
+        'machinery' => [
+            'previewRoute' => 'gestionnaire.machinery.documents.versions.preview',
+            'downloadRoute' => 'gestionnaire.machinery.documents.versions.download',
+            'permission' => 'machinery.download',
+        ],
+        'tooling' => [
+            'previewRoute' => 'gestionnaire.toolings.documents.versions.preview',
+            'downloadRoute' => 'gestionnaire.toolings.documents.versions.download',
+            'permission' => 'toolings.download',
+        ],
+    };
 @endphp
 
 @if ($kind === 'company')
@@ -37,7 +59,7 @@
                     </label>
                 @endif
             <details name="delegated-company-documents-{{ $record->id }}" class="group/document min-w-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 p-4 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 marker:hidden">
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 p-4 transition hover:bg-[#f5faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#164f43] marker:hidden">
                     <span class="min-w-0 break-words text-sm font-semibold text-slate-900">{{ $document->displayLabel() }}</span>
                     <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5 shrink-0 text-slate-500 transition-transform group-open/document:rotate-180" aria-hidden="true">
                         <path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -75,6 +97,7 @@
                                     ? route('gestionnaire.delegated.companies.documents.imported-data', [$prestataire, $record, $document])
                                     : null,
                             'excelDataTitle' => $document->displayLabel(),
+                            'theme' => 'green',
                         ])
                     @endif
                 </div>
@@ -92,7 +115,7 @@
                             <input id="expires-{{ $record->id }}-{{ $document->type }}" type="date" name="expires_at" value="{{ old('expires_at', $document->expires_at?->format('Y-m-d')) }}" class="form-control min-h-10 w-full rounded-xl border border-slate-300 px-3 text-sm text-slate-900">
                         </div>
                     @endif
-                    <button type="submit" class="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700">Téléverser / remplacer</button>
+                    <button type="submit" class="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#164f43] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#123e36] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#164f43]">Téléverser / remplacer</button>
                 </form>
                 </div>
             </details>
@@ -112,7 +135,7 @@
                 type="submit"
                 data-delegated-company-document-submit
                 disabled
-                class="inline-flex min-h-10 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                class="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#164f43] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#123e36] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
             >
                 Valider tout (0)
             </button>
@@ -138,6 +161,14 @@
             });
         </script>
     @endif
+    @include('shared.company-document-version-history', [
+        'documents' => $documents,
+        'resource' => $record,
+        'previewRoute' => $versionHistory['previewRoute'],
+        'downloadRoute' => $versionHistory['downloadRoute'],
+        'canDownload' => auth()->user()->hasPermission($versionHistory['permission']),
+        'theme' => 'green',
+    ])
 @elseif ($kind === 'employee')
     <section class="space-y-4">
         <div class="flex items-start justify-between gap-3">
@@ -149,7 +180,7 @@
         </div>
         @foreach ($documents as $document)
             <details name="delegated-employee-documents-{{ $record->id }}" class="group/document overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 sm:px-6 marker:hidden">
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 transition hover:bg-[#f5faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#164f43] sm:px-6 marker:hidden">
                     <span class="min-w-0 break-words font-semibold text-slate-900">{{ $document->displayLabel() }}</span>
                     <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5 shrink-0 text-slate-500 transition-transform group-open/document:rotate-180" aria-hidden="true">
                         <path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -180,6 +211,7 @@
                             'downloadUrl' => route($downloadRoute, [$record, $document]),
                             'downloadLabel' => 'Télécharger le document',
                             'fileName' => $document->file_name,
+                            'theme' => 'green',
                         ])
                         @if ($document->expires_at)
                             <span class="text-slate-600">Expire le {{ $document->expires_at->format('d/m/Y') }}</span>
@@ -208,11 +240,19 @@
                             @error('expires_at')<p class="mt-1 text-sm text-red-700">{{ $message }}</p>@enderror
                         </div>
                     </div>
-                    <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-800 hover:bg-blue-100">Enregistrer le document</button>
+                    <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#164f43] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123e36] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#164f43]">Enregistrer le document</button>
                 </form>
                 </div>
             </details>
         @endforeach
+        @include('shared.company-document-version-history', [
+            'documents' => $documents,
+            'resource' => $record,
+            'previewRoute' => $versionHistory['previewRoute'],
+            'downloadRoute' => $versionHistory['downloadRoute'],
+            'canDownload' => auth()->user()->hasPermission($versionHistory['permission']),
+            'theme' => 'green',
+        ])
     </section>
 @elseif (in_array($kind, ['machinery', 'tooling'], true))
     <section class="space-y-4">
@@ -231,7 +271,7 @@
         @endif
         @forelse ($documents as $document)
             <details name="delegated-{{ $kind }}-documents-{{ $record->id }}" class="group/document overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 sm:px-6 marker:hidden">
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 transition hover:bg-[#f5faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#164f43] sm:px-6 marker:hidden">
                     <span class="min-w-0 break-words font-semibold text-slate-900">{{ $document->label }}</span>
                     <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5 shrink-0 text-slate-500 transition-transform group-open/document:rotate-180" aria-hidden="true">
                         <path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -249,6 +289,7 @@
                                     'downloadUrl' => route($downloadRoute, [$record, $document]),
                                     'downloadLabel' => 'Télécharger le document',
                                     'fileName' => $document->file_name,
+                                    'theme' => 'green',
                                 ])
                             </div>
                         @else
@@ -295,13 +336,21 @@
                             @error('expires_at')<p class="mt-1 text-sm text-red-700">{{ $message }}</p>@enderror
                         </div>
                     </div>
-                    <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-800 hover:bg-blue-100">Enregistrer le document</button>
+                    <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#164f43] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123e36] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#164f43]">Enregistrer le document</button>
                 </form>
                 </div>
             </details>
         @empty
             <p class="text-sm text-slate-500">Aucun document n’est défini pour ce dossier.</p>
         @endforelse
+        @include('shared.company-document-version-history', [
+            'documents' => $documents,
+            'resource' => $record,
+            'previewRoute' => $versionHistory['previewRoute'],
+            'downloadRoute' => $versionHistory['downloadRoute'],
+            'canDownload' => auth()->user()->hasPermission($versionHistory['permission']),
+            'theme' => 'green',
+        ])
 
         @if ($kind === 'tooling')
             <article class="rounded-2xl border border-dashed border-slate-300 bg-white p-5 shadow-sm sm:p-6">
@@ -325,7 +374,7 @@
                         <p class="mt-1 text-xs text-slate-500">PDF, JPG ou PNG · 10 Mo maximum.</p>
                         @error('document')<p class="mt-1 text-sm text-red-700">{{ $message }}</p>@enderror
                     </div>
-                    <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 sm:col-span-2 sm:justify-self-start">Ajouter le document</button>
+                    <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#164f43] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123e36] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#164f43] sm:col-span-2 sm:justify-self-start">Ajouter le document</button>
                 </form>
             </article>
         @endif
